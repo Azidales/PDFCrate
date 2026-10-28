@@ -20,32 +20,35 @@ class ReaderSmokeTest {
         compose.waitUntil(20_000) {
             compose.onAllNodesWithText("1 / 3").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Anterior").assertIsNotEnabled()
-        compose.onNodeWithText("Próxima").performClick()
+        compose.onNodeWithContentDescription("Anterior").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Próxima").performClick()
         compose.waitUntil(20_000) {
             compose.onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("+ Zoom").performClick()
-        compose.onNodeWithText("Ajustar").performClick()
+        compose.onNodeWithContentDescription("Aumentar zoom").performClick()
+        compose.onNodeWithContentDescription("Ajustar página").performClick()
         compose.onNodeWithText("2 / 3").performClick()
         compose.onNodeWithText("Página de 1 a 3").performTextInput("3")
         compose.onNodeWithText("Ir", useUnmergedTree = true).performClick()
         compose.waitUntil(20_000) {
             compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Próxima").assertIsNotEnabled()
+        compose.onNodeWithContentDescription("Próxima").assertIsNotEnabled()
         saveScreenshot("reader-page-3.png")
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("3 / 3").assertExists()
-        compose.onNodeWithText("Voltar").performClick()
-        compose.onNodeWithText("Continuar na página 3").assertExists()
+        compose.onNodeWithContentDescription("Voltar").performClick()
+        compose.onNodeWithText("Página 3 de 3").assertExists()
+        saveScreenshot("library.png")
+        compose.onNodeWithContentDescription("Opções de Bem-vindo ao PDFCrate.pdf").performClick()
         compose.onNodeWithText("Favoritar").performClick()
         compose.onNodeWithText("Favoritos").performClick()
         compose.onNodeWithText("Bem-vindo ao PDFCrate.pdf").performClick()
         compose.waitUntil(20_000) {
             compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty()
         }
-        compose.onNodeWithText("Voltar").performClick()
+        compose.onNodeWithContentDescription("Voltar").performClick()
+        compose.onNodeWithContentDescription("Opções de Bem-vindo ao PDFCrate.pdf").performClick()
         compose.onNodeWithText("Remover cópia").performClick()
         compose.onNodeWithText("Remover", useUnmergedTree = true).performClick()
         compose.onNodeWithText("Bem-vindo ao PDFCrate.pdf").assertDoesNotExist()
@@ -64,7 +67,8 @@ class ReaderSmokeTest {
                     bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
                     assertTrue(pixels.count { Color.red(it) < 128 } > 100)
                     assertTrue(bitmap.width <= 2200 && bitmap.height <= 2200)
-                } finally { bitmap.recycle() }
+                } finally { /* Shared bitmap lifetime belongs to the renderer/cache. */ }
+                assertSame("Repeated rendering should reuse the cached page", bitmap, session.render(2))
                 try { session.render(3); fail("Out-of-range page was accepted") }
                 catch (_: IllegalArgumentException) { }
             }
@@ -98,16 +102,17 @@ class ReaderSmokeTest {
                 compose.onAllNodesWithText("1 / 3").fetchSemanticsNodes().isNotEmpty()
             }
             assertTrue(sourceFile.delete())
-            compose.onNodeWithText("Próxima").performClick()
+            compose.onNodeWithContentDescription("Próxima").performClick()
             compose.waitUntil(20_000) {
                 compose.onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Voltar").performClick()
+            compose.onNodeWithContentDescription("Voltar").performClick()
             compose.onNodeWithText("Arquivo externo.pdf").performClick()
             compose.waitUntil(20_000) {
                 compose.onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty()
             }
-            compose.onNodeWithText("Voltar").performClick()
+            compose.onNodeWithContentDescription("Voltar").performClick()
+            compose.onNodeWithContentDescription("Opções de Arquivo externo.pdf").performClick()
             compose.onNodeWithText("Remover cópia").performClick()
             compose.onNodeWithText("Remover", useUnmergedTree = true).performClick()
         } finally {
@@ -122,7 +127,8 @@ class ReaderSmokeTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
         try {
-            val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots")
+            val directory = File(InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
+                ?: File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots").absolutePath)
             directory.mkdirs()
             File(directory, name).outputStream().use {
                 bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)

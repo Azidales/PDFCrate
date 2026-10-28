@@ -9,6 +9,9 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.IOException
@@ -28,6 +31,7 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
     var error by mutableStateOf<String?>(null)
         private set
     private var session: PdfSession? = null
+    private var prefetch: Job? = null
 
     fun dismissError() { error = null }
     fun open(uri: Uri) = load { library.import(uri) }
@@ -37,6 +41,7 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
     private fun load(existing: Boolean = false, obtain: () -> LibraryDocument) {
         if (busy) { error = "Aguarde a abertura do documento atual e tente novamente."; return }
         busy = true
+        prefetch?.cancel()
         viewModelScope.launch {
             var imported: LibraryDocument? = null
             var candidate: PdfSession? = null
@@ -48,10 +53,14 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
                     candidate = opened
                     require(opened.pageCount > 0) { "O PDF não contém páginas." }
                     val page = document.page.coerceIn(0, opened.pageCount - 1)
-                    Triple(document.copy(page = page, opened = System.currentTimeMillis()),
-                        opened.pageCount, opened.render(page))
+                    val updated = document.copy(page = page, opened = System.currentTimeMillis(),
+                        pages = opened.pageCount, bytes = library.file(document.id).length())
+                    val rendered = opened.render(page)
+                    // A cache failure must never prevent reading the document.
+                    runCatching { library.saveThumbnail(updated, rendered) }
+                    Triple(updated, opened.pageCount, rendered)
                 }
-                session?.close()
+                session?.closeAsync()
                 session = candidate
                 candidate = null
                 current = result.first
@@ -59,9 +68,11 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
                 bitmap = result.third
                 library.update(result.first)
                 documents = library.documents()
+                prepareNext(result.first.page + 1)
             } catch (failure: Exception) {
-                candidate?.close()
+                candidate?.closeAsync()
                 imported?.let { library.file(it.id).delete() }
+                if (failure is CancellationException) throw failure
                 error = when (failure) {
                     is SecurityException -> "Este PDF está protegido ou o acesso foi negado. Nesta versão, abra uma cópia sem senha."
                     is IOException -> "Não foi possível abrir o PDF. ${failure.message.orEmpty()}"
@@ -76,6 +87,7 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
         val engine = session ?: return
         if (busy || index !in 0 until count || index == document.page) return
         busy = true
+        prefetch?.cancel()
         viewModelScope.launch {
             try {
                 val rendered = withContext(Dispatchers.IO) { engine.render(index) }
@@ -84,15 +96,28 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
                 current = updated
                 library.update(updated)
                 documents = library.documents()
-            } catch (_: Exception) {
+                prepareNext(index + if (index > document.page) 1 else -1)
+            } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
                 error = "Não foi possível renderizar esta página. Tente outra página."
             } finally { busy = false }
         }
     }
 
+    private fun prepareNext(index: Int) {
+        val engine = session ?: return
+        if (index !in 0 until count) return
+        prefetch = viewModelScope.launch(Dispatchers.IO) {
+            delay(120)
+            // Native rasterization is serialized by PdfSession; no work is done on the UI thread.
+            runCatching { engine.render(index) }
+        }
+    }
+
     fun home() {
         if (busy) return
-        session?.close()
+        prefetch?.cancel()
+        session?.closeAsync()
         session = null
         bitmap = null
         current = null
@@ -113,5 +138,5 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
         } catch (_: IOException) { error = "Não foi possível remover a cópia local." }
     }
 
-    override fun onCleared() { session?.close() }
+    override fun onCleared() { prefetch?.cancel(); session?.closeAsync() }
 }

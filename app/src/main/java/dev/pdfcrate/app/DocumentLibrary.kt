@@ -2,6 +2,7 @@ package dev.pdfcrate.app
 
 import android.content.Context
 import android.graphics.Color
+import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
@@ -17,12 +18,15 @@ data class LibraryDocument(
     val name: String,
     val page: Int = 0,
     val favorite: Boolean = false,
-    val opened: Long = System.currentTimeMillis()
+    val opened: Long = System.currentTimeMillis(),
+    val pages: Int = 0,
+    val bytes: Long = 0
 )
 
 class DocumentLibrary(private val context: Context) {
     private val preferences = context.getSharedPreferences("library", Context.MODE_PRIVATE)
     private val directory = File(context.filesDir, "documents").apply { mkdirs() }
+    private val thumbnails = File(context.cacheDir, "thumbnails").apply { mkdirs() }
 
     @Synchronized fun documents(): List<LibraryDocument> {
         val array = try { JSONArray(preferences.getString("documents", "[]")) }
@@ -33,13 +37,30 @@ class DocumentLibrary(private val context: Context) {
             if (!id.matches(Regex("[a-f0-9-]{36}")) || !file(id).isFile) return@mapNotNull null
             LibraryDocument(id, item.optString("name", "Documento.pdf"),
                 item.optInt("page", 0).coerceAtLeast(0), item.optBoolean("favorite"),
-                item.optLong("opened", 0))
+                item.optLong("opened", 0), item.optInt("pages", 0), item.optLong("bytes", 0))
         }.sortedByDescending { it.opened }
     }
 
     fun file(id: String): File {
         require(id.matches(Regex("[a-f0-9-]{36}")))
         return File(directory, "$id.pdf")
+    }
+
+    fun thumbnail(id: String): File {
+        require(id.matches(Regex("[a-f0-9-]{36}")))
+        return File(thumbnails, "$id.png")
+    }
+
+    /** Called on the rendering worker, never while drawing the library. */
+    fun saveThumbnail(document: LibraryDocument, bitmap: Bitmap) {
+        val target = thumbnail(document.id)
+        if (target.exists()) return
+        val scale = minOf(180f / bitmap.width, 260f / bitmap.height)
+        val width = (bitmap.width * scale).toInt().coerceAtLeast(1)
+        val height = (bitmap.height * scale).toInt().coerceAtLeast(1)
+        val scaled = Bitmap.createScaledBitmap(bitmap, width, height, true)
+        try { target.outputStream().use { scaled.compress(Bitmap.CompressFormat.PNG, 100, it) } }
+        finally { if (scaled !== bitmap) scaled.recycle() }
     }
 
     @Synchronized fun update(document: LibraryDocument) {
@@ -49,6 +70,7 @@ class DocumentLibrary(private val context: Context) {
     @Synchronized fun remove(document: LibraryDocument) {
         val target = file(document.id)
         if (target.exists() && !target.delete()) throw IOException("Não foi possível remover a cópia local.")
+        thumbnail(document.id).delete()
         write(documents().filter { it.id != document.id })
     }
 
@@ -56,7 +78,8 @@ class DocumentLibrary(private val context: Context) {
         val array = JSONArray()
         documents.forEach { item ->
             array.put(JSONObject().put("id", item.id).put("name", item.name)
-                .put("page", item.page).put("favorite", item.favorite).put("opened", item.opened))
+                .put("page", item.page).put("favorite", item.favorite).put("opened", item.opened)
+                .put("pages", item.pages).put("bytes", item.bytes))
         }
         preferences.edit().putString("documents", array.toString()).apply()
     }
