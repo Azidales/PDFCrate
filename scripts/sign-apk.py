@@ -26,6 +26,8 @@ if hashlib.sha256(cert).hexdigest() != expected:
     raise SystemExit('Signing certificate differs from the pinned PDFCrate identity. Refusing to sign.')
 badging = subprocess.run([str(args.build_tools / 'aapt'), 'dump', 'badging', str(args.apk)],
     check=True, capture_output=True, text=True).stdout
+if "application-debuggable" in badging:
+    raise SystemExit("Debug builds are test-only; provide the unsigned release APK.")
 if "name='dev.pdfcrate.app'" not in badging.splitlines()[0]:
     raise SystemExit('Unexpected Android package; refusing to sign.')
 args.output.parent.mkdir(parents=True, exist_ok=True)

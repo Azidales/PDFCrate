@@ -113,9 +113,9 @@ class DocumentLibrary(private val context: Context) {
             try {
                 val titles = listOf("Bem-vindo ao PDFCrate", "Leia do seu jeito", "Arquivos no lugar certo")
                 val rows = listOf(
-                    listOf("Um leitor sem anuncios e sem conta.", "Use dois dedos para ampliar.", "Toque duas vezes para alternar o zoom.", "Um toque oculta ou mostra os controles."),
-                    listOf("Use as setas para navegar.", "Toque no numero para ir a uma pagina.", "Deslize na horizontal com a pagina ajustada.", "O aplicativo lembra onde voce parou."),
-                    listOf("Abra PDFs pelo seletor do Android.", "O arquivo permanece no provedor escolhido.", "O app guarda apenas os arquivos recentes.", "Remover dos recentes nao apaga o PDF.")
+                    listOf("Um leitor sem anúncios e sem conta.", "Use dois dedos para ampliar.", "Toque duas vezes para alternar o zoom.", "Um toque oculta ou mostra os controles."),
+                    listOf("Use as setas para navegar.", "Toque no número para ir a uma página.", "Deslize na horizontal com a página ajustada.", "O aplicativo lembra onde você parou."),
+                    listOf("Abra PDFs pelo seletor do Android.", "O arquivo permanece no provedor escolhido.", "O app guarda apenas os arquivos recentes.", "Remover dos recentes não apaga o PDF.")
                 )
                 titles.forEachIndexed { index, title ->
                     val page = pdf.startPage(PdfDocument.PageInfo.Builder(595, 842, index + 1).create())

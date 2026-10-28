@@ -42,17 +42,17 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
     fun openSelected(uri: Uri) {
         val previous = locate
         locate = null
-        load { library.reference(uri, previous) }
+        load(previous) { library.reference(uri, previous) }
     }
     fun sample() = load { library.sample() }
-    fun open(document: LibraryDocument) = load { document }
+    fun open(document: LibraryDocument) = load(document) { library.reference(library.uri(document), document) }
 
-    private fun load(obtain: () -> LibraryDocument) {
+    private fun load(previous: LibraryDocument? = null, obtain: () -> LibraryDocument) {
         if (busy) { error = "Aguarde a abertura do documento atual e tente novamente."; return }
         busy = true
         prefetch?.cancel()
         viewModelScope.launch {
-            var selected: LibraryDocument? = null
+            var selected: LibraryDocument? = previous
             var candidate: PdfSession? = null
             try {
                 val result = withContext(Dispatchers.IO) {

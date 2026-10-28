@@ -1,38 +1,38 @@
-# PDFCrate 0.2.0-alpha
+# PDFCrate 0.3.0-alpha
 
-Leitor com interface refinada e animações sincronizadas à tela. Android 8.0 (API 26) ou superior.
+Android 8.0 (API 26) ou superior. Interface em Kotlin/Compose e leitura com PdfRenderer do Android.
 
 ## Disponível
 
-- Abrir PDFs no seletor Android, por Abrir com ou pelo compartilhamento de outro aplicativo.
-- Renderização local com o motor do próprio Android.
-- Página anterior/próxima, gesto horizontal na página ajustada e salto para uma página.
-- Pinça para zoom, arraste com inércia, toque duplo, zoom animado e ajuste à tela.
+- Abertura direta pelo seletor ou por outro aplicativo, sem importar cópias.
+- Recentes por URI, busca pelo nome e retomada da última página.
+- Navegação, salto de página, zoom por pinça/toque duplo/botões e arraste com inércia.
 - Toque simples para ocultar ou mostrar os controles.
-- Miniaturas e cartão para continuar a leitura.
-- Biblioteca de cópias locais, busca por nome, favoritos e retomada da última página.
-- Compartilhar uma cópia por outro aplicativo.
-- Tema claro/escuro conforme o sistema.
-- Exemplo de três páginas para experimentar o leitor.
-- Sem anúncios, conta, IA, rastreadores ou permissão de internet.
+- Compartilhamento do documento escolhido, com concessão temporária de leitura.
+- Mensagem de acesso temporário e recuperação de arquivo indisponível.
+- Claro/escuro conforme o sistema. Sem anúncios, IA, conta, rastreadores ou internet.
 
-Abrir importa uma cópia para o armazenamento privado do aplicativo. O original não é editado. A cópia continua disponível offline. Remover cópia apaga apenas essa importação; desinstalar o aplicativo remove toda a biblioteca. Limite inicial de importação: 512 MB por arquivo.
+Remover dos recentes não apaga o arquivo. O provedor controla a disponibilidade; arquivos de nuvem podem depender de rede ou da opção offline oferecida pelo próprio provedor. Não há cópia local automática de fallback.
 
-## Limitações desta versão
+## Atualizações e instalação
 
-É uma etapa anterior à V1 completa. Não inclui PDFs com senha, busca/seleção de texto, anotações, edição, preenchimento de formulários, impressão, miniaturas ou sumário. Páginas são imagens para leitura; o texto do PDF ainda não é exposto ao TalkBack. Ampliação máxima de 6x, com rasterização limitada a 2.200 pixels no lado maior para controlar memória.
+A distribuição final usa chave fixa; ela fica fora do Git. A CI pública gera uma release sem assinatura, que precisa passar pelo procedimento em signing/README.md antes de instalar. Não confundir o artefato unsigned com o APK final assinado.
 
-Nenhum motor experimental do laboratório é incorporado ao APK. A decisão de motor para edição permanece em investigação.
+A transição das antigas builds com chave debug aleatória exige uma última desinstalação. Isso apaga os dados internos dessas builds. A partir da nova identidade, manter a mesma chave e aumentar versionCode permite atualizar sem apagar recentes. Guardar backup privado da chave e da senha é indispensável.
 
-## Gerar e instalar
+## Limitações
+
+Ainda não inclui senha, busca/seleção de texto, anotações, formulários, assinatura desenhada, impressão, miniaturas de páginas ou sumário. Texto de PDFs ainda não é exposto como conteúdo acessível ao TalkBack. Zoom limitado a 6x com imagem de até 2.200 pixels no lado maior.
+
+Alguns provedores só oferecem streams sem acesso aleatório e não funcionam com leitura direta por PdfRenderer. O app informa a limitação; não importa o arquivo silenciosamente.
+
+## Desenvolvimento e validação
 
 JDK 17, Gradle 8.13 e SDK Android 36:
 
 ```sh
-gradle :app:assembleDebug :app:lintDebug
-adb install -r app/build/outputs/apk/debug/app-debug.apk
+gradle :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease
+gradle :app:connectedDebugAndroidTest
 ```
 
-A workflow `PDFCrate APK` publica o arquivo instalável no artefato `PDFCrate-0.2.0-alpha-apk` e executa testes instrumentados. O APK é assinado com chave de debug para avaliação; não é uma versão de loja. Builds em outros ambientes podem usar outra chave de debug e exigir desinstalar a versão anterior, o que apaga a biblioteca local. Uma chave estável de distribuição deverá ser configurada antes de releases para usuários.
-
-Os testes também conferem cache, aceleração por hardware e registram tempos de frame durante o zoom. O teste de interface abre o exemplo, muda páginas, salta à última página, aciona zoom/ajuste, retorna à biblioteca, favorita, reabre e remove a cópia. Outro teste confere renderização não vazia, limite de imagem e rejeição de entradas inválidas.
+A CI verifica os fluxos de leitura em APIs 26 e 36, acesso ao provedor original, substituição/remoção do arquivo externo, cache, tempos de frame e uma atualização real de pacote por adb install -r. Relatórios detalhados acompanham cada execução. O motor experimental PDFBox permanece restrito aos testes do laboratório, fora do APK do leitor.

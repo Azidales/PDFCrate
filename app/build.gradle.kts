@@ -7,6 +7,7 @@ plugins {
 android {
     namespace = "dev.pdfcrate.app"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
     defaultConfig {
         applicationId = "dev.pdfcrate.app"
         minSdk = 26

@@ -117,8 +117,14 @@ class ReaderSmokeTest {
         }
     }
 
-    private fun awaitPage(text: String) = compose.waitUntil(20_000) {
-        compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty()
+    private fun awaitPage(text: String) {
+        try {
+            compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
+        } catch (failure: Throwable) {
+            compose.onRoot(useUnmergedTree = true).printToLog("PDFCrateUITest")
+            saveScreenshot("failure.png")
+            throw failure
+        }
     }
     private fun forget(name: String) {
         compose.onNodeWithContentDescription("Opções de $name").performClick()

@@ -5,6 +5,8 @@ import android.graphics.Color
 import android.graphics.pdf.PdfRenderer
 import android.os.ParcelFileDescriptor
 import android.util.LruCache
+import android.system.Os
+import java.io.IOException
 import java.io.Closeable
 import java.io.File
 import java.util.concurrent.Executors
@@ -25,6 +27,12 @@ class PdfSession(private val descriptor: ParcelFileDescriptor) : Closeable {
 
     init {
         try {
+            // Reject obvious non-PDF input before constructing the native renderer. Some old
+            // Android renderers leave a partially initialized native object after invalid input.
+            val header = ByteArray(1024)
+            val read = Os.pread(descriptor.fileDescriptor, header, 0, header.size, 0)
+            if (read <= 0 || !String(header, 0, read, Charsets.ISO_8859_1).contains("%PDF-"))
+                throw IOException("O arquivo não tem um cabeçalho PDF válido.")
             renderer = PdfRenderer(descriptor)
         } catch (failure: Throwable) {
             descriptor.close()
