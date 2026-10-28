@@ -32,13 +32,13 @@ jobs:
           gradle-version: '8.13'
           cache-read-only: false
       - name: Install Android SDK
-        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+        run: sdkmanager 'platforms;android-36' 'platforms;android-36-ext19' 'build-tools;36.0.0'
       - name: Build APK and check lint
         run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease :app:lintDebug :app:lintRelease
       - name: Publish unsigned release for private signing
         uses: actions/upload-artifact@v4
         with:
-          name: PDFCrate-0.3.0-unsigned-release
+          name: PDFCrate-0.4.0-unsigned-release
           path: app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 30
@@ -61,10 +61,19 @@ jobs:
           arch: x86_64
           disable-animations: false
           script: bash scripts/test-reader.sh 33
-      - name: Test on Android 16
+      - name: Test native PDF on Android 15
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          arch: x86_64
+          disable-animations: false
+          script: bash scripts/test-reader.sh 35
+      - name: Test on Android 16 with native PDF extension 19
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36
+          system-image-api-level: 36-ext19
+          target: google_apis
           arch: x86_64
           disable-animations: false
           script: bash scripts/test-reader.sh 36

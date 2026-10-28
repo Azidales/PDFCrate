@@ -19,6 +19,8 @@ class UpgradeContinuityTest {
             "seed" -> {
                 context.contentResolver.call(source, "seed", null, Bundle().apply { putByteArray("pdf", fixturePdf(3)) })
                 library.update(library.reference(source).copy(page = 1, pages = 3))
+                // Instrumentation exits without an Activity.onStop; flush the seed before install -r.
+                check(context.getSharedPreferences("recents_v1", 0).edit().putBoolean("seed-flushed", true).commit())
                 context.getSharedPreferences("update-probe", 0).edit().putString("token", "preserve-me").commit()
             }
             "verify" -> {

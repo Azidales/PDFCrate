@@ -28,4 +28,4 @@ Os testes de leitura usam um provedor separado, contido somente no APK de instru
 
 O teste de atualização grava histórico, instala um APK de versionCode maior com adb install -r e confirma a posição e o acesso ao documento. As versões debug do teste compartilham a mesma chave no job; a identidade dos APKs de distribuição é verificada separadamente com o certificado público fixado.
 
-Busca, seleção, senha, anotações, salvamento e formulários são as próximas etapas. A escolha de um motor de edição ainda precisa resolver manutenção, licença e suporte às versões Android.
+Na versão 0.4, busca, seleção, senha, anotações, salvamento e formulários usam o módulo nativo quando disponível. A escolha por APIs nativas preserva a licença do projeto em aberto; veja docs/NATIVOS_COMPATIBILIDADE.md.

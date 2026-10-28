@@ -1,4 +1,4 @@
-# PDFCrate 0.3.0-alpha
+# PDFCrate 0.4.0-alpha
 
 Android 8.0 (API 26) ou superior. Interface em Kotlin/Compose e leitura com PdfRenderer do Android.
 
@@ -22,7 +22,7 @@ A transição das antigas builds com chave debug aleatória exige uma última de
 
 ## Limitações
 
-Ainda não inclui senha, busca/seleção de texto, anotações, formulários, assinatura desenhada, impressão, miniaturas de páginas ou sumário. Texto de PDFs ainda não é exposto como conteúdo acessível ao TalkBack. Zoom limitado a 6x com imagem de até 2.200 pixels no lado maior.
+Recursos de senha, texto, edição e formulários dependem das APIs nativas presentes no dispositivo; veja docs/NATIVOS_COMPATIBILIDADE.md. Ainda não inclui OCR, impressão, rolagem contínua, miniaturas de páginas, sumário ou assinatura digital com certificado. Zoom limitado a 6x com imagem de até 2.200 pixels no lado maior.
 
 Alguns provedores só oferecem streams sem acesso aleatório e não funcionam com leitura direta por PdfRenderer. O app informa a limitação; não importa o arquivo silenciosamente.
 

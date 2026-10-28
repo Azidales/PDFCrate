@@ -19,6 +19,8 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.isSystemInDarkTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -111,6 +113,16 @@ private fun PDFCrate(model: ReaderModel) {
     var chrome by rememberSaveable(document?.id) { mutableStateOf(true) }
     var goToPage by remember { mutableStateOf(false) }
     var about by remember { mutableStateOf(false) }
+    var showSearch by remember(document?.id) { mutableStateOf(false) }
+    var showSignature by remember { mutableStateOf(false) }
+    var discardRecovery by remember { mutableStateOf(false) }
+    var exportingBackup by remember { mutableStateOf(false) }
+    val savePicker = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/pdf")) { uri ->
+        if (uri != null) { if (exportingBackup) model.exportRecoveryBackup(uri) else model.saveCopy(uri) }
+        exportingBackup = false
+    }
+    val saveCopy = { exportingBackup = false; savePicker.launch(model.current?.name ?: "Documento.pdf") }
+
     val pageView = remember(context, document?.id) { ZoomPageView(context) }
     BackHandler(enabled = document != null) { model.home() }
     DisposableEffect(pageView) { onDispose { pageView.show(null); pageView.onTap = null; pageView.onPageSwipe = null } }
@@ -140,8 +152,11 @@ private fun PDFCrate(model: ReaderModel) {
                     },
                     actions = {
                         if (document == null) IconButton(onClick = { about = true }) { Glyph(R.drawable.ic_info, "Sobre o PDFCrate") }
-                        else IconButton(onClick = { share(context, model, document) }, enabled = !model.busy) {
-                            Glyph(R.drawable.ic_share, "Compartilhar PDF")
+                        else {
+                            IconButton(onClick = { share(context, model, document) }, enabled = !model.busy) {
+                                Glyph(R.drawable.ic_share, "Compartilhar PDF")
+                            }
+                            ReaderMenu(model, onSearch = { showSearch = true }, onSaveCopy = saveCopy, onSignature = { showSignature = true })
                         }
                     },
                     colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
@@ -188,13 +203,23 @@ private fun PDFCrate(model: ReaderModel) {
         }
     ) { padding ->
         Box(Modifier.fillMaxSize().padding(padding)) {
-            if (document == null) LibraryScreen(model)
-            else AndroidView(factory = { pageView }, modifier = Modifier.fillMaxSize(), update = {
-                it.show(model.bitmap)
-                it.onTap = { chrome = !chrome }
-                it.onPageSwipe = { direction -> model.page(document.page + direction) }
-                it.contentDescription = "Página ${document.page + 1} de ${model.count}"
-            })
+            if (document == null) LibraryScreen(model,
+                onExportBackup = { exportingBackup = true; savePicker.launch("Original-${model.recovery?.name ?: "Documento.pdf"}") },
+                onDiscardRecovery = { discardRecovery = true })
+            else Column(Modifier.fillMaxSize()) {
+                ReaderExtraBar(model, showSearch, onCloseSearch = { showSearch = false })
+                AndroidView(factory = { pageView }, modifier = Modifier.fillMaxWidth().weight(1f), update = {
+                    it.show(model.bitmap, document.page)
+                    it.isEnabled = !model.busy
+                    it.showOverlays(model.size.width, model.size.height, model.searchBounds, model.selection.bounds, model.tool)
+                    it.onTap = { chrome = !chrome }
+                    it.onPageSwipe = { direction -> model.page(document.page + direction) }
+                    it.onSelection = if (model.advanced) model::select else null
+                    it.onArea = if (model.annotationsAvailable) model::receiveArea else null
+                    it.onInk = if (model.annotationsAvailable) model::addInk else null
+                    it.contentDescription = "Página ${document.page + 1} de ${model.count}"
+                })
+            }
             if (model.busy) LinearProgressIndicator(Modifier.fillMaxWidth().align(Alignment.TopCenter))
         }
     }
@@ -210,20 +235,32 @@ private fun PDFCrate(model: ReaderModel) {
             dismissButton = { TextButton(onClick = { goToPage = false }) { Text("Cancelar") } })
     }
     if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("PDFCrate") },
-        text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Versão 0.3.0 · Leitor de PDF")
+        text = { Column(Modifier.heightIn(max = 440.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text("Versão 0.4.0 · Leitor de PDF")
             Text("O PDF é aberto diretamente no local escolhido. O app guarda apenas o histórico e a última página, sem importar uma cópia. Remover dos recentes não apaga nem altera o arquivo.")
-            Text("Anotações, formulários e PDFs com senha ainda não estão disponíveis.", style = MaterialTheme.typography.bodySmall)
+            Text(NativePdfSupport.description(), style = MaterialTheme.typography.bodySmall)
+            Text("A disponibilidade depende do Android e do módulo PDF instalado. OCR e assinatura com certificado não estão incluídos.", style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { about = false; model.sample() }, enabled = !model.busy) { Text("Experimentar exemplo") }
         } }, confirmButton = { TextButton(onClick = { about = false }) { Text("Fechar") } })
+    NativeDialogs(model, showSignature, closeSignature = { showSignature = false }, onSaveCopy = saveCopy)
+    if (discardRecovery) AlertDialog(onDismissRequest = { discardRecovery = false }, title = { Text("Descartar recuperação?") },
+        text = { Text("As versões editada e anterior guardadas para recuperação serão apagadas. Exporte o que precisar antes de continuar.") },
+        confirmButton = { TextButton(onClick = { model.discardRecovery(); discardRecovery = false }) { Text("Descartar recuperação") } },
+        dismissButton = { TextButton(onClick = { discardRecovery = false }) { Text("Cancelar") } })
     model.error?.let { message -> AlertDialog(onDismissRequest = model::dismissError,
         title = { Text("Não foi possível concluir") }, text = { Text(message) },
-        confirmButton = { TextButton(onClick = { model.beginLocate(); picker.launch(arrayOf("application/pdf")) }) { Text(if (model.locate != null) "Localizar arquivo" else "Abrir arquivo") } },
+        confirmButton = {
+            when {
+                model.locate != null -> TextButton(onClick = { model.beginLocate(); picker.launch(arrayOf("application/pdf")) }) { Text("Localizar arquivo") }
+                model.recovery != null && model.current != null -> TextButton(onClick = { model.dismissError(); saveCopy() }) { Text("Salvar cópia") }
+                else -> TextButton(onClick = model::dismissError) { Text("Entendi") }
+            }
+        },
         dismissButton = { TextButton(onClick = { model.dismissError(); model.cancelLocate() }) { Text("Fechar") } }) }
 }
 
 @Composable
-private fun LibraryScreen(model: ReaderModel) {
+private fun LibraryScreen(model: ReaderModel, onExportBackup: () -> Unit, onDiscardRecovery: () -> Unit) {
     var query by rememberSaveable { mutableStateOf("") }
     val filtered = model.documents.filter { it.name.contains(query, ignoreCase = true) }
     val recent = if (query.isBlank()) filtered.firstOrNull() else null
@@ -242,6 +279,17 @@ private fun LibraryScreen(model: ReaderModel) {
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Glyph(R.drawable.ic_close, "Limpar busca") } },
                 colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow))
+        }
+        if (model.recovery != null) item {
+            Surface(color = MaterialTheme.colorScheme.errorContainer, shape = RoundedCornerShape(16.dp)) {
+                Column(Modifier.padding(16.dp)) {
+                    Text("Recuperação de gravação", style = MaterialTheme.typography.titleMedium)
+                    Text("Uma gravação foi interrompida ou falhou. Revise as versões preservadas antes de usar o original.", style = MaterialTheme.typography.bodySmall)
+                    TextButton(onClick = model::openRecovery) { Text("Abrir alterações recuperadas") }
+                    TextButton(onClick = onExportBackup) { Text("Exportar original anterior") }
+                    TextButton(onClick = onDiscardRecovery) { Text("Descartar recuperação") }
+                }
+            }
         }
         if (recent != null) item {
             RecentCard(recent, model, onRemove = { model.remove(recent) })
@@ -316,7 +364,7 @@ private fun DocumentMenu(document: LibraryDocument, model: ReaderModel, onRemove
             DropdownMenuItem(text = { Text("Compartilhar") }, leadingIcon = { Glyph(R.drawable.ic_share, null) },
                 onClick = { expanded = false; share(context, model, document) })
             HorizontalDivider()
-            DropdownMenuItem(text = { Text("Remover dos recentes") }, leadingIcon = { Glyph(R.drawable.ic_trash, null) },
+            DropdownMenuItem(text = { Text("Remover dos recentes") }, leadingIcon = { Glyph(R.drawable.ic_close, null) },
                 onClick = { expanded = false; onRemove() })
         }
     }
@@ -338,6 +386,10 @@ private fun metadata(document: LibraryDocument): String {
 }
 
 private fun share(context: Context, model: ReaderModel, document: LibraryDocument) {
+    if (model.current?.id == document.id && model.dirty) {
+        model.notifyError("Salve as alterações antes de compartilhar o documento.")
+        return
+    }
     try {
         val uri = model.library.uri(document)
         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
