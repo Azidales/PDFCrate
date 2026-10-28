@@ -84,9 +84,11 @@ class ReaderSmokeTest {
         val sourceFile = library.file(source.id)
         val uri = androidx.core.content.FileProvider.getUriForFile(context,
             "${context.packageName}.files", sourceFile, "Arquivo externo.pdf")
+        val activity = compose.activity
+        val initialIntent = activity.intent
         try {
-            compose.activity.runOnUiThread {
-                compose.activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW)
+            activity.runOnUiThread {
+                activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW)
                     .setClass(context, MainActivity::class.java)
                     .setDataAndType(uri, "application/pdf")
                     .addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or
@@ -108,7 +110,12 @@ class ReaderSmokeTest {
             compose.onNodeWithText("Voltar").performClick()
             compose.onNodeWithText("Remover cópia").performClick()
             compose.onNodeWithText("Remover", useUnmergedTree = true).performClick()
-        } finally { sourceFile.delete() }
+        } finally {
+            // ActivityScenario identifies lifecycle callbacks by the original launch intent.
+            // Restore its identity after testing the real onNewIntent flow, before rule cleanup.
+            InstrumentationRegistry.getInstrumentation().runOnMainSync { activity.intent = initialIntent }
+            sourceFile.delete()
+        }
     }
 
     private fun saveScreenshot(name: String) {

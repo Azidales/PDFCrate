@@ -34,11 +34,18 @@ jobs:
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - name: Build APK and check lint
         run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
+      - name: Verify APK signature and prepare download
+        run: |
+          mkdir -p app/build/distribution
+          cp app/build/outputs/apk/debug/app-debug.apk app/build/distribution/PDFCrate-0.1.0-alpha.apk
+          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs app/build/distribution/PDFCrate-0.1.0-alpha.apk > app/build/distribution/signature.txt
+          cd app/build/distribution
+          sha256sum PDFCrate-0.1.0-alpha.apk > SHA256SUMS
       - name: Publish installable APK
         uses: actions/upload-artifact@v4
         with:
           name: PDFCrate-0.1.0-alpha-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          path: app/build/distribution/
           if-no-files-found: error
           retention-days: 30
       - name: Enable emulator acceleration
@@ -52,9 +59,14 @@ jobs:
           api-level: 26
           arch: x86_64
           disable-animations: true
-          script: |
-            gradle --no-daemon :app:connectedDebugAndroidTest
-            adb pull /sdcard/Android/data/dev.pdfcrate.app/files/screenshots app/build/screenshots
+          script: bash scripts/test-reader.sh 26
+      - name: Test on Android 16
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 36
+          arch: x86_64
+          disable-animations: true
+          script: bash scripts/test-reader.sh 36
       - name: Publish verification reports
         if: always()
         uses: actions/upload-artifact@v4
@@ -64,4 +76,5 @@ jobs:
             app/build/reports/
             app/build/outputs/androidTest-results/
             app/build/screenshots/
+            app/build/device-results/
           if-no-files-found: warn
