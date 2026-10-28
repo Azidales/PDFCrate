@@ -111,8 +111,18 @@ private class ExtensionPdfBackend(input: ParcelFileDescriptor, password: String?
     override val count get() = pdf.pageCount
     override val advanced = true
     override val annotations = NativePdfSupport.extension >= 18
+    private val annotationIds = mutableMapOf<Int, MutableList<Int>>()
+    private var nextAnnotationId = 0
     override fun page(index: Int): PdfPageAccess {
         val page = pdf.openPage(index)
+        // Framework annotation IDs expire when Page.close() releases its ID manager.
+        // Keep session identities in document order and translate on each page opening.
+        val identities by lazy {
+            val native = page.pageAnnotations
+            val stable = annotationIds.getOrPut(index) { native.map { nextAnnotationId++ }.toMutableList() }
+            check(stable.size == native.size) { "A lista de anotações mudou inesperadamente." }
+            stable to stable.zip(native.map { it.first }).toMap().toMutableMap()
+        }
         return PdfPageAccess(page.width, page.height,
             draw = { page.render(it, null, null, NativePdfMapping.renderParams()) },
             text = { NativePdfMapping.text(page.textContents) },
@@ -120,10 +130,30 @@ private class ExtensionPdfBackend(input: ParcelFileDescriptor, password: String?
             select = { from, to -> NativePdfMapping.selection(page.selectContent(SelectionBoundary(from), SelectionBoundary(to))?.selectedTextContents) },
             fields = { page.formWidgetInfos.map(NativePdfMapping::field) },
             edit = { page.applyEdit(NativePdfMapping.edit(index, it)) },
-            annotations = { checkAnnotations(); page.pageAnnotations.map { NativeAnnotations.entry(it.first, it.second) } },
-            add = { checkAnnotations(); page.addPageAnnotation(it as PdfAnnotation) },
-            remove = { checkAnnotations(); page.removePageAnnotation(it) },
-            update = { id, value -> checkAnnotations(); page.updatePageAnnotation(id, value as PdfAnnotation) },
+            annotations = {
+                checkAnnotations()
+                val stableByNative = identities.second.entries.associate { it.value to it.key }
+                page.pageAnnotations.map { NativeAnnotations.entry(stableByNative.getValue(it.first), it.second) }
+            },
+            add = {
+                checkAnnotations()
+                val (stable, nativeIds) = identities
+                val nativeId = page.addPageAnnotation(it as PdfAnnotation)
+                check(nativeId >= 0) { "Não foi possível adicionar a anotação." }
+                val id = nextAnnotationId++
+                stable.add(id); nativeIds[id] = nativeId
+                id
+            },
+            remove = { id ->
+                checkAnnotations()
+                val (stable, nativeIds) = identities
+                page.removePageAnnotation(nativeIds.getValue(id))
+                stable.remove(id); nativeIds.remove(id)
+            },
+            update = { id, value ->
+                checkAnnotations()
+                page.updatePageAnnotation(identities.second.getValue(id), value as PdfAnnotation)
+            },
             dispose = page::close)
     }
     private fun checkAnnotations() { if (!annotations) throw PdfFeatureUnavailable() }
@@ -149,10 +179,10 @@ private object NativePdfMapping {
             else -> FieldKind.OTHER
         }, widget.textValue.orEmpty(), widget.isReadOnly, widget.isMultiLineText, widget.maxLength,
         Rect(widget.widgetRect), widget.listItems.map { PdfChoice(it.label, it.isSelected) }, widget.isMultiSelect)
-    fun edit(page: Int, change: FieldChange): FormEditRecord = FormEditRecord.Builder(page,
+    fun edit(page: Int, change: FieldChange): FormEditRecord = FormEditRecord.Builder(
         when { change.click != null -> FormEditRecord.EDIT_TYPE_CLICK
             change.indices != null -> FormEditRecord.EDIT_TYPE_SET_INDICES
-            else -> FormEditRecord.EDIT_TYPE_SET_TEXT }, change.index).apply {
+            else -> FormEditRecord.EDIT_TYPE_SET_TEXT }, page, change.index).apply {
             change.click?.let(::setClickPoint)
             change.indices?.let(::setSelectedIndices)
             change.text?.let(::setText)

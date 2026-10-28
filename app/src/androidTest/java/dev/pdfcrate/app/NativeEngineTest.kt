@@ -91,6 +91,8 @@ class NativeEngineTest {
                 while (pdf.canUndo()) pdf.undoAnnotation()
                 assertEquals(initial, pdf.annotations(0).size)
                 while (pdf.canRedo()) pdf.redoAnnotation()
+                assertEquals(initial + 2, pdf.annotations(0).size)
+                pdf.undoAnnotation() // The pending redo also reapplies the final deletion.
                 assertEquals(initial + 3, pdf.annotations(0).size)
                 assertTrue(pdf.annotations(0).any { it.text == "Updated note" })
                 pdf.write(output(saved))
