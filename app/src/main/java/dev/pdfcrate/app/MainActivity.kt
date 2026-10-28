@@ -99,7 +99,14 @@ private fun Glyph(@DrawableRes icon: Int, description: String?, modifier: Modifi
 @Composable
 private fun PDFCrate(model: ReaderModel) {
     val context = LocalContext.current
-    val picker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { it?.let(model::open) }
+    val contract = remember { object : ActivityResultContracts.OpenDocument() {
+        override fun createIntent(context: Context, input: Array<String>): Intent =
+            super.createIntent(context, input).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                Intent.FLAG_GRANT_WRITE_URI_PERMISSION or Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION)
+    } }
+    val picker = rememberLauncherForActivityResult(contract) { uri ->
+        if (uri != null) model.openSelected(uri) else model.cancelLocate()
+    }
     val document = model.current
     var chrome by rememberSaveable(document?.id) { mutableStateOf(true) }
     var goToPage by remember { mutableStateOf(false) }
@@ -122,7 +129,7 @@ private fun PDFCrate(model: ReaderModel) {
                         } else Column {
                             Text(document.name, fontSize = 15.sp, fontWeight = FontWeight.Medium,
                                 maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            Text("PDF · ${model.count} páginas", style = MaterialTheme.typography.labelSmall,
+                            Text("PDF · ${model.count} ${if (model.count == 1) "página" else "páginas"}", style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     },
@@ -146,7 +153,7 @@ private fun PDFCrate(model: ReaderModel) {
                 onClick = { if (!model.busy) picker.launch(arrayOf("application/pdf")) },
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary,
-                icon = { Glyph(R.drawable.ic_add, null) }, text = { Text("Abrir PDF") },
+                icon = { Glyph(R.drawable.ic_add, null) }, text = { Text("Abrir arquivo") },
                 shape = RoundedCornerShape(18.dp)
             )
         },
@@ -204,51 +211,43 @@ private fun PDFCrate(model: ReaderModel) {
     }
     if (about) AlertDialog(onDismissRequest = { about = false }, title = { Text("PDFCrate") },
         text = { Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text("Versão 0.2.0 · Leitor offline")
-            Text("Os PDFs abertos são copiados para esta biblioteca. O original permanece intacto. Remover uma cópia ou desinstalar o aplicativo apaga apenas os arquivos guardados aqui.")
+            Text("Versão 0.3.0 · Leitor de PDF")
+            Text("O PDF é aberto diretamente no local escolhido. O app guarda apenas o histórico e a última página, sem importar uma cópia. Remover dos recentes não apaga nem altera o arquivo.")
             Text("Anotações, formulários e PDFs com senha ainda não estão disponíveis.", style = MaterialTheme.typography.bodySmall)
             TextButton(onClick = { about = false; model.sample() }, enabled = !model.busy) { Text("Experimentar exemplo") }
         } }, confirmButton = { TextButton(onClick = { about = false }) { Text("Fechar") } })
     model.error?.let { message -> AlertDialog(onDismissRequest = model::dismissError,
         title = { Text("Não foi possível concluir") }, text = { Text(message) },
-        confirmButton = { TextButton(onClick = model::dismissError) { Text("Entendi") } }) }
+        confirmButton = { TextButton(onClick = { model.beginLocate(); picker.launch(arrayOf("application/pdf")) }) { Text(if (model.locate != null) "Localizar arquivo" else "Abrir arquivo") } },
+        dismissButton = { TextButton(onClick = { model.dismissError(); model.cancelLocate() }) { Text("Fechar") } }) }
 }
 
 @Composable
 private fun LibraryScreen(model: ReaderModel) {
     var query by rememberSaveable { mutableStateOf("") }
-    var favorites by rememberSaveable { mutableStateOf(false) }
-    var removing by remember { mutableStateOf<LibraryDocument?>(null) }
-    val filtered = model.documents.filter { (!favorites || it.favorite) && it.name.contains(query, ignoreCase = true) }
-    val recent = if (!favorites && query.isBlank()) filtered.firstOrNull() else null
+    val filtered = model.documents.filter { it.name.contains(query, ignoreCase = true) }
+    val recent = if (query.isBlank()) filtered.firstOrNull() else null
     val remaining = if (recent == null) filtered else filtered.drop(1)
     LazyColumn(Modifier.fillMaxSize(), contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 8.dp, bottom = 110.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)) {
         item {
-            Text("Biblioteca", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
+            Text("Recentes", style = MaterialTheme.typography.headlineLarge, fontWeight = FontWeight.SemiBold)
             Spacer(Modifier.height(5.dp))
-            Text(if (model.documents.isEmpty()) "Seus documentos, neste aparelho" else
-                "${model.documents.size} ${if (model.documents.size == 1) "documento salvo" else "documentos salvos"}",
-                style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text("Arquivos no lugar onde você os salvou", style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant)
             Spacer(Modifier.height(22.dp))
             OutlinedTextField(value = query, onValueChange = { query = it }, modifier = Modifier.fillMaxWidth(),
-                placeholder = { Text("Buscar documentos") }, singleLine = true, shape = RoundedCornerShape(16.dp),
+                placeholder = { Text("Buscar nos recentes") }, singleLine = true, shape = RoundedCornerShape(16.dp),
                 leadingIcon = { Glyph(R.drawable.ic_search, null) },
                 trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { query = "" }) { Glyph(R.drawable.ic_close, "Limpar busca") } },
                 colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
                     unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow))
-            Spacer(Modifier.height(8.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                FilterChip(selected = !favorites, onClick = { favorites = false }, label = { Text("Recentes") })
-                FilterChip(selected = favorites, onClick = { favorites = true }, label = { Text("Favoritos") },
-                    leadingIcon = { Glyph(R.drawable.ic_heart, null, Modifier.size(16.dp)) })
-            }
         }
         if (recent != null) item {
-            RecentCard(recent, model, onRemove = { removing = recent })
+            RecentCard(recent, model, onRemove = { model.remove(recent) })
         }
         if (remaining.isNotEmpty()) item {
-            Text(if (recent != null) "Outros documentos" else "Documentos", style = MaterialTheme.typography.titleSmall,
+            Text("Abertos anteriormente", style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         items(remaining, key = { it.id }) { document ->
@@ -260,8 +259,10 @@ private fun LibraryScreen(model: ReaderModel) {
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text(document.name, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text(metadata(document), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (!document.persistent && !model.library.isSample(document))
+                            Text("Acesso temporário", style = MaterialTheme.typography.labelSmall)
                     }
-                    DocumentMenu(document, model, { removing = document })
+                    DocumentMenu(document, model, { model.remove(document) })
                 }
             }
         }
@@ -271,18 +272,14 @@ private fun LibraryScreen(model: ReaderModel) {
                 Surface(shape = RoundedCornerShape(24.dp), color = MaterialTheme.colorScheme.primaryContainer) {
                     Glyph(R.drawable.ic_document, null, Modifier.padding(22.dp).size(42.dp), MaterialTheme.colorScheme.onPrimaryContainer)
                 }
-                Text(if (model.documents.isEmpty()) "Sua biblioteca está vazia" else "Nenhum documento encontrado",
+                Text(if (model.documents.isEmpty()) "Nenhum arquivo recente" else "Nenhum arquivo encontrado",
                     style = MaterialTheme.typography.titleMedium)
-                Text(if (model.documents.isEmpty()) "Abra um PDF para começar a ler." else "Tente outro nome ou filtro.",
+                Text(if (model.documents.isEmpty()) "Toque em Abrir arquivo para escolher um PDF." else "Tente outro nome.",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (model.documents.isEmpty()) TextButton(onClick = model::sample, enabled = !model.busy) { Text("Experimentar exemplo") }
             }
         }
     }
-    removing?.let { document -> AlertDialog(onDismissRequest = { removing = null }, title = { Text("Remover cópia local?") },
-        text = { Text("${document.name} será removido desta biblioteca. O arquivo original não será apagado.") },
-        confirmButton = { TextButton(onClick = { model.remove(document); removing = null }) { Text("Remover") } },
-        dismissButton = { TextButton(onClick = { removing = null }) { Text("Cancelar") } }) }
 }
 
 @Composable
@@ -298,6 +295,8 @@ private fun RecentCard(document: LibraryDocument, model: ReaderModel, onRemove: 
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text("Página ${document.page + 1}${if (document.pages > 0) " de ${document.pages}" else ""}",
                     style = MaterialTheme.typography.bodySmall)
+                if (!document.persistent && !model.library.isSample(document))
+                    Text("Acesso temporário", style = MaterialTheme.typography.labelSmall)
                 LinearProgressIndicator(progress = { (document.page + 1).toFloat() / document.pages.coerceAtLeast(document.page + 1) },
                     modifier = Modifier.fillMaxWidth().padding(top = 4.dp).height(3.dp),
                     trackColor = MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = .10f))
@@ -314,13 +313,10 @@ private fun DocumentMenu(document: LibraryDocument, model: ReaderModel, onRemove
     Box {
         IconButton(onClick = { expanded = true }, enabled = !model.busy) { Glyph(R.drawable.ic_more, "Opções de ${document.name}") }
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            DropdownMenuItem(text = { Text(if (document.favorite) "Desfavoritar" else "Favoritar") },
-                leadingIcon = { Glyph(R.drawable.ic_heart, null) },
-                onClick = { expanded = false; model.favorite(document) })
             DropdownMenuItem(text = { Text("Compartilhar") }, leadingIcon = { Glyph(R.drawable.ic_share, null) },
                 onClick = { expanded = false; share(context, model, document) })
             HorizontalDivider()
-            DropdownMenuItem(text = { Text("Remover cópia") }, leadingIcon = { Glyph(R.drawable.ic_trash, null) },
+            DropdownMenuItem(text = { Text("Remover dos recentes") }, leadingIcon = { Glyph(R.drawable.ic_trash, null) },
                 onClick = { expanded = false; onRemove() })
         }
     }
@@ -328,25 +324,22 @@ private fun DocumentMenu(document: LibraryDocument, model: ReaderModel, onRemove
 
 @Composable
 private fun Thumbnail(document: LibraryDocument, model: ReaderModel, modifier: Modifier) {
-    val image by produceState<android.graphics.Bitmap?>(null, document.id) {
-        value = withContext(Dispatchers.IO) { BitmapFactory.decodeFile(model.library.thumbnail(document.id).absolutePath) }
-    }
+
     Box(modifier.clip(RoundedCornerShape(6.dp)).background(Color.White), contentAlignment = Alignment.Center) {
-        if (image != null) Image(image!!.asImageBitmap(), null, Modifier.fillMaxSize(), contentScale = ContentScale.Fit)
-        else Glyph(R.drawable.ic_document, null, tint = Color(0xFF698070))
+        Glyph(R.drawable.ic_document, null, tint = Color(0xFF698070))
     }
 }
 
 @Composable
 private fun metadata(document: LibraryDocument): String {
     val context = LocalContext.current
-    return listOfNotNull("PDF", document.pages.takeIf { it > 0 }?.let { "$it páginas" },
+    return listOfNotNull("PDF", document.pages.takeIf { it > 0 }?.let { "$it ${if (it == 1) "página" else "páginas"}" },
         document.bytes.takeIf { it > 0 }?.let { Formatter.formatShortFileSize(context, it) }).joinToString(" · ")
 }
 
 private fun share(context: Context, model: ReaderModel, document: LibraryDocument) {
     try {
-        val uri = FileProvider.getUriForFile(context, "${context.packageName}.files", model.library.file(document.id), document.name)
+        val uri = model.library.uri(document)
         context.startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).apply {
             type = "application/pdf"
             putExtra(Intent.EXTRA_STREAM, uri)

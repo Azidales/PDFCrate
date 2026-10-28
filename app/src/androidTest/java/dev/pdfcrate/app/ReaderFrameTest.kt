@@ -66,9 +66,8 @@ class ReaderFrameTest {
             thread.quitSafely()
         }
         compose.onNodeWithContentDescription("Voltar").performClick()
-        compose.onNodeWithContentDescription("Opções de Bem-vindo ao PDFCrate.pdf").performClick()
-        compose.onNodeWithText("Remover cópia").performClick()
-        compose.onNodeWithText("Remover", useUnmergedTree = true).performClick()
+        compose.onNodeWithContentDescription("Opções de Exemplo PDFCrate.pdf").performClick()
+        compose.onNodeWithText("Remover dos recentes").performClick()
     }
 
     private fun findReader(view: View): ZoomPageView? {

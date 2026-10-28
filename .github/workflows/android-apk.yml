@@ -34,19 +34,12 @@ jobs:
       - name: Install Android SDK
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - name: Build APK and check lint
-        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:lintDebug
-      - name: Verify APK signature and prepare download
-        run: |
-          mkdir -p app/build/distribution
-          cp app/build/outputs/apk/debug/app-debug.apk app/build/distribution/PDFCrate-0.2.0-alpha.apk
-          "$ANDROID_HOME/build-tools/36.0.0/apksigner" verify --verbose --print-certs app/build/distribution/PDFCrate-0.2.0-alpha.apk > app/build/distribution/signature.txt
-          cd app/build/distribution
-          sha256sum PDFCrate-0.2.0-alpha.apk > SHA256SUMS
-      - name: Publish installable APK
+        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease :app:lintDebug :app:lintRelease
+      - name: Publish unsigned release for private signing
         uses: actions/upload-artifact@v4
         with:
-          name: PDFCrate-0.2.0-alpha-apk
-          path: app/build/distribution/
+          name: PDFCrate-0.3.0-unsigned-release
+          path: app/build/outputs/apk/release/app-release-unsigned.apk
           if-no-files-found: error
           retention-days: 30
       - name: Enable emulator acceleration
@@ -78,5 +71,6 @@ jobs:
             app/build/outputs/androidTest-results/
             app/build/screenshots/
             app/build/device-results/
+            app/build/upgrade/
             app/build/outputs/connected_android_test_additional_output/
           if-no-files-found: warn

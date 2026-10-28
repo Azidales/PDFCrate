@@ -33,31 +33,40 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
     private var session: PdfSession? = null
     private var prefetch: Job? = null
 
-    fun dismissError() { error = null }
-    fun open(uri: Uri) = load { library.import(uri) }
+    fun dismissError() { error = null; locate = null }
+    fun beginLocate() { error = null }
+    var locate by mutableStateOf<LibraryDocument?>(null)
+        private set
+    fun cancelLocate() { locate = null }
+    fun open(uri: Uri) { locate = null; load { library.reference(uri) } }
+    fun openSelected(uri: Uri) {
+        val previous = locate
+        locate = null
+        load { library.reference(uri, previous) }
+    }
     fun sample() = load { library.sample() }
-    fun open(document: LibraryDocument) = load(existing = true) { document }
+    fun open(document: LibraryDocument) = load { document }
 
-    private fun load(existing: Boolean = false, obtain: () -> LibraryDocument) {
+    private fun load(obtain: () -> LibraryDocument) {
         if (busy) { error = "Aguarde a abertura do documento atual e tente novamente."; return }
         busy = true
         prefetch?.cancel()
         viewModelScope.launch {
-            var imported: LibraryDocument? = null
+            var selected: LibraryDocument? = null
             var candidate: PdfSession? = null
             try {
                 val result = withContext(Dispatchers.IO) {
                     val document = obtain()
-                    if (!existing) imported = document
-                    val opened = PdfSession(library.file(document.id))
+                    selected = document
+                    val descriptor = getApplication<Application>().contentResolver.openFileDescriptor(library.uri(document), "r")
+                        ?: throw IOException("O provedor nao disponibilizou o PDF.")
+                    val opened = PdfSession(descriptor)
                     candidate = opened
                     require(opened.pageCount > 0) { "O PDF não contém páginas." }
                     val page = document.page.coerceIn(0, opened.pageCount - 1)
                     val updated = document.copy(page = page, opened = System.currentTimeMillis(),
-                        pages = opened.pageCount, bytes = library.file(document.id).length())
+                        pages = opened.pageCount)
                     val rendered = opened.render(page)
-                    // A cache failure must never prevent reading the document.
-                    runCatching { library.saveThumbnail(updated, rendered) }
                     Triple(updated, opened.pageCount, rendered)
                 }
                 session?.closeAsync()
@@ -71,12 +80,13 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
                 prepareNext(result.first.page + 1)
             } catch (failure: Exception) {
                 candidate?.closeAsync()
-                imported?.let { library.file(it.id).delete() }
+
                 if (failure is CancellationException) throw failure
+                locate = selected
                 error = when (failure) {
-                    is SecurityException -> "Este PDF está protegido ou o acesso foi negado. Nesta versão, abra uma cópia sem senha."
-                    is IOException -> "Não foi possível abrir o PDF. ${failure.message.orEmpty()}"
-                    else -> "Não foi possível abrir este documento. Ele pode estar inválido ou usar um formato não compatível."
+                    is SecurityException -> "O acesso ao PDF foi negado ou o documento tem senha. Escolha o arquivo novamente pelo seletor do Android."
+                    is IOException -> "O PDF pode ter sido movido, removido ou estar indisponível no provedor. Abra o arquivo novamente pelo seletor do Android."
+                    else -> "Não foi possível ler o PDF diretamente. Ele pode estar inválido ou o provedor pode não oferecer acesso compatível. Nenhuma cópia foi importada."
                 }
             } finally { busy = false }
         }
@@ -125,17 +135,10 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
         documents = library.documents()
     }
 
-    fun favorite(document: LibraryDocument) {
-        library.update(document.copy(favorite = !document.favorite))
-        documents = library.documents()
-    }
-
     fun remove(document: LibraryDocument) {
         if (busy) return
-        try {
-            library.remove(document)
-            documents = library.documents()
-        } catch (_: IOException) { error = "Não foi possível remover a cópia local." }
+        library.remove(document)
+        documents = library.documents()
     }
 
     override fun onCleared() { prefetch?.cancel(); session?.closeAsync() }

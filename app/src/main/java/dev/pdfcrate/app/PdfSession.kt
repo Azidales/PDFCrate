@@ -12,7 +12,8 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 
 /** Platform renderer only. No third-party PDF engine is shipped in this alpha. */
-class PdfSession(file: File) : Closeable {
+class PdfSession(private val descriptor: ParcelFileDescriptor) : Closeable {
+    constructor(file: File) : this(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY))
     private val renderer: PdfRenderer
     private var closed = false
     // Byte budget, rather than page count: differently shaped pages use different amounts of RAM.
@@ -23,7 +24,6 @@ class PdfSession(file: File) : Closeable {
     }
 
     init {
-        val descriptor = ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY)
         try {
             renderer = PdfRenderer(descriptor)
         } catch (failure: Throwable) {

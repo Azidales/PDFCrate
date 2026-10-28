@@ -1,161 +1,141 @@
 package dev.pdfcrate.app
 
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
-import android.graphics.Bitmap
 import android.graphics.Paint
 import android.graphics.pdf.PdfDocument
 import android.net.Uri
 import android.provider.OpenableColumns
+import androidx.core.content.FileProvider
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
 import java.util.UUID
 
+/** A reference to a user-selected document. No imported PDF is stored in the application. */
 data class LibraryDocument(
     val id: String,
     val name: String,
     val page: Int = 0,
-    val favorite: Boolean = false,
     val opened: Long = System.currentTimeMillis(),
     val pages: Int = 0,
-    val bytes: Long = 0
+    val bytes: Long = 0,
+    val uri: String,
+    val persistent: Boolean = false
 )
 
 class DocumentLibrary(private val context: Context) {
-    private val preferences = context.getSharedPreferences("library", Context.MODE_PRIVATE)
-    private val directory = File(context.filesDir, "documents").apply { mkdirs() }
-    private val thumbnails = File(context.cacheDir, "thumbnails").apply { mkdirs() }
+    private val preferences = context.getSharedPreferences("recents_v1", Context.MODE_PRIVATE)
 
     @Synchronized fun documents(): List<LibraryDocument> {
         val array = try { JSONArray(preferences.getString("documents", "[]")) }
-        catch (_: Exception) { JSONArray() }
+            catch (_: Exception) { JSONArray() }
         return (0 until array.length()).mapNotNull { index ->
             val item = array.optJSONObject(index) ?: return@mapNotNull null
-            val id = item.optString("id")
-            if (!id.matches(Regex("[a-f0-9-]{36}")) || !file(id).isFile) return@mapNotNull null
-            LibraryDocument(id, item.optString("name", "Documento.pdf"),
-                item.optInt("page", 0).coerceAtLeast(0), item.optBoolean("favorite"),
-                item.optLong("opened", 0), item.optInt("pages", 0), item.optLong("bytes", 0))
+            val uri = item.optString("uri")
+            if (Uri.parse(uri).scheme != "content") return@mapNotNull null
+            LibraryDocument(item.optString("id"), item.optString("name", "Documento.pdf"),
+                item.optInt("page", 0).coerceAtLeast(0), item.optLong("opened", 0),
+                item.optInt("pages", 0), item.optLong("bytes", 0), uri, item.optBoolean("persistent"))
         }.sortedByDescending { it.opened }
     }
 
-    fun file(id: String): File {
-        require(id.matches(Regex("[a-f0-9-]{36}")))
-        return File(directory, "$id.pdf")
-    }
+    fun uri(document: LibraryDocument): Uri = Uri.parse(document.uri)
+    fun isSample(document: LibraryDocument): Boolean =
+        uri(document).authority == "${context.packageName}.files"
 
-    fun thumbnail(id: String): File {
-        require(id.matches(Regex("[a-f0-9-]{36}")))
-        return File(thumbnails, "$id.png")
-    }
-
-    /** Called on the rendering worker, never while drawing the library. */
-    fun saveThumbnail(document: LibraryDocument, bitmap: Bitmap) {
-        val target = thumbnail(document.id)
-        if (target.exists()) return
-        val scale = minOf(180f / bitmap.width, 260f / bitmap.height)
-        val width = (bitmap.width * scale).toInt().coerceAtLeast(1)
-        val height = (bitmap.height * scale).toInt().coerceAtLeast(1)
-        val scaled = Bitmap.createScaledBitmap(bitmap, width, height, true)
-        try { target.outputStream().use { scaled.compress(Bitmap.CompressFormat.PNG, 100, it) } }
-        finally { if (scaled !== bitmap) scaled.recycle() }
+    /** Opens the provider's URI and attempts to retain only permissions actually offered by it. */
+    fun reference(uri: Uri, previous: LibraryDocument? = null): LibraryDocument {
+        require(uri.scheme == "content") { "Escolha o PDF pelo seletor de arquivos do Android." }
+        var name = "Documento.pdf"
+        var size = 0L
+        context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE),
+            null, null, null)?.use { cursor ->
+            if (cursor.moveToFirst()) {
+                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                if (nameIndex >= 0) name = cursor.getString(nameIndex)?.take(180)?.takeIf { it.isNotBlank() } ?: name
+                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) size = cursor.getLong(sizeIndex).coerceAtLeast(0)
+            }
+        }
+        if (uri.authority != "${context.packageName}.files") {
+            try { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION) }
+            catch (_: SecurityException) { /* ACTION_VIEW/SEND providers may offer temporary access only. */ }
+            try { context.contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_WRITE_URI_PERMISSION) }
+            catch (_: SecurityException) { /* Read-only documents remain readable. */ }
+        }
+        val persistent = context.contentResolver.persistedUriPermissions.any { it.uri == uri && it.isReadPermission }
+        val existing = previous ?: documents().firstOrNull { it.uri == uri.toString() }
+        return LibraryDocument(existing?.id ?: UUID.nameUUIDFromBytes(uri.toString().toByteArray()).toString(),
+            name, existing?.page ?: 0, pages = existing?.pages ?: 0, bytes = size,
+            uri = uri.toString(), persistent = persistent)
     }
 
     @Synchronized fun update(document: LibraryDocument) {
-        write(listOf(document) + documents().filter { it.id != document.id })
+        val all = documents()
+        val retained = (listOf(document) + all.filter { it.id != document.id && it.uri != document.uri }).take(50)
+        write(retained)
+        all.filter { old -> retained.none { it.uri == old.uri } }.forEach(::release)
     }
 
+    /** Forgetting a recent entry never deletes, truncates or rewrites the provider's file. */
     @Synchronized fun remove(document: LibraryDocument) {
-        val target = file(document.id)
-        if (target.exists() && !target.delete()) throw IOException("Não foi possível remover a cópia local.")
-        thumbnail(document.id).delete()
         write(documents().filter { it.id != document.id })
+        release(document)
+    }
+
+    private fun release(document: LibraryDocument) {
+        val target = uri(document)
+        context.contentResolver.persistedUriPermissions.filter { it.uri == target }.forEach { permission ->
+            val flags = (if (permission.isReadPermission) Intent.FLAG_GRANT_READ_URI_PERMISSION else 0) or
+                (if (permission.isWritePermission) Intent.FLAG_GRANT_WRITE_URI_PERMISSION else 0)
+            try { context.contentResolver.releasePersistableUriPermission(target, flags) }
+            catch (_: SecurityException) { }
+        }
     }
 
     private fun write(documents: List<LibraryDocument>) {
         val array = JSONArray()
-        documents.forEach { item ->
-            array.put(JSONObject().put("id", item.id).put("name", item.name)
-                .put("page", item.page).put("favorite", item.favorite).put("opened", item.opened)
-                .put("pages", item.pages).put("bytes", item.bytes))
-        }
+        documents.forEach { item -> array.put(JSONObject().put("id", item.id).put("name", item.name)
+            .put("page", item.page).put("opened", item.opened).put("pages", item.pages)
+            .put("bytes", item.bytes).put("uri", item.uri).put("persistent", item.persistent)) }
         preferences.edit().putString("documents", array.toString()).apply()
     }
 
-    fun import(uri: Uri): LibraryDocument {
-        require(uri.scheme == "content") { "Escolha o PDF pelo seletor de arquivos do Android." }
-        val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME),
-            null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) cursor.getString(0) else null
-        }?.take(180)?.takeIf { it.isNotBlank() } ?: "Documento.pdf"
-        val document = LibraryDocument(UUID.randomUUID().toString(), name)
-        val target = file(document.id)
-        try {
-            val input = context.contentResolver.openInputStream(uri)
-                ?: throw IOException("O provedor não disponibilizou o arquivo.")
-            input.use { source ->
-                target.outputStream().use { output ->
-                    val buffer = ByteArray(64 * 1024)
-                    var total = 0L
-                    while (true) {
-                        val count = source.read(buffer)
-                        if (count == -1) break
-                        total += count
-                        if (total > 512L * 1024 * 1024) {
-                            throw IOException("Esta versão aceita arquivos de até 512 MB.")
-                        }
-                        if (directory.usableSpace < count + 8L * 1024 * 1024) {
-                            throw IOException("Espaço insuficiente para a cópia local.")
-                        }
-                        output.write(buffer, 0, count)
-                    }
-                    if (total == 0L) throw IOException("O arquivo está vazio.")
-                }
-            }
-            return document
-        } catch (failure: Throwable) {
-            target.delete()
-            throw failure
-        }
-    }
-
+    /** The demo is generated by the app, not imported from a user's document. */
     fun sample(): LibraryDocument {
-        val entry = LibraryDocument(UUID.randomUUID().toString(), "Bem-vindo ao PDFCrate.pdf")
-        try {
+        val directory = File(context.cacheDir, "samples").apply { mkdirs() }
+        val target = File(directory, "exemplo.pdf")
+        if (!target.isFile) {
             val pdf = PdfDocument()
             try {
-                val titles = listOf("Seu PDF. Seu espaço.", "Leitura sem distrações.", "Seus documentos, aqui.")
-                val lines = listOf(
-                    listOf("PDFCrate", "Um leitor local, sem anúncios e sem IA.", "Deslize para mover a página ampliada.", "Use dois dedos para ampliar.", "Toque duas vezes para alternar o zoom."),
-                    listOf("Explore o documento", "Use Anterior e Próxima para navegar.", "Toque no número da página para ir direto.", "Ajustar restaura a página inteira.", "A última página é lembrada automaticamente."),
-                    listOf("Biblioteca offline", "Abra um PDF pelo seletor do Android.", "Uma cópia fica guardada neste aplicativo.", "O arquivo original permanece intacto.", "Remover a cópia libera espaço no aparelho.")
+                val titles = listOf("Bem-vindo ao PDFCrate", "Leia do seu jeito", "Arquivos no lugar certo")
+                val rows = listOf(
+                    listOf("Um leitor sem anuncios e sem conta.", "Use dois dedos para ampliar.", "Toque duas vezes para alternar o zoom.", "Um toque oculta ou mostra os controles."),
+                    listOf("Use as setas para navegar.", "Toque no numero para ir a uma pagina.", "Deslize na horizontal com a pagina ajustada.", "O aplicativo lembra onde voce parou."),
+                    listOf("Abra PDFs pelo seletor do Android.", "O arquivo permanece no provedor escolhido.", "O app guarda apenas os arquivos recentes.", "Remover dos recentes nao apaga o PDF.")
                 )
                 titles.forEachIndexed { index, title ->
                     val page = pdf.startPage(PdfDocument.PageInfo.Builder(595, 842, index + 1).create())
-                    val paint = Paint(Paint.ANTI_ALIAS_FLAG)
+                    val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = Color.rgb(23, 63, 56) }
                     page.canvas.drawColor(Color.WHITE)
-                    paint.color = Color.rgb(23, 63, 56)
                     page.canvas.drawRect(0f, 0f, 595f, 16f, paint)
-                    paint.textSize = 28f
+                    paint.textSize = 27f
                     paint.isFakeBoldText = true
                     page.canvas.drawText(title, 44f, 120f, paint)
                     paint.textSize = 16f
                     paint.isFakeBoldText = false
-                    lines[index].forEachIndexed { row, line ->
-                        page.canvas.drawText(line, 44f, 190f + row * 40, paint)
-                    }
+                    rows[index].forEachIndexed { row, line -> page.canvas.drawText(line, 44f, 190f + row * 40, paint) }
                     paint.textSize = 12f
-                    page.canvas.drawText("PDFCrate · ${index + 1} / 3", 44f, 790f, paint)
+                    page.canvas.drawText("PDFCrate - ${index + 1} / 3", 44f, 790f, paint)
                     pdf.finishPage(page)
                 }
-                file(entry.id).outputStream().use { pdf.writeTo(it) }
-            } finally { pdf.close() }
-            return entry
-        } catch (failure: Throwable) {
-            file(entry.id).delete()
-            throw failure
+                target.outputStream().use { pdf.writeTo(it) }
+            } catch (failure: Throwable) { target.delete(); throw failure }
+            finally { pdf.close() }
         }
+        return reference(FileProvider.getUriForFile(context, "${context.packageName}.files", target, "Exemplo PDFCrate.pdf"))
     }
 }

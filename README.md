@@ -2,11 +2,11 @@
 
 Leitor de PDF nativo para Android. Sem anúncios, IA, rastreadores ou conta obrigatória. Processamento local e funcionamento offline.
 
-## APK atual — 0.2.0-alpha
+## APK atual — 0.3.0-alpha
 
-Leitura de PDFs com biblioteca de miniaturas, cartão de retomada, favoritos, busca por nome e compartilhamento. Leitor com controles compactos, modo de leitura por toque, navegação por gesto, zoom animado e deslocamento com inércia. Android 8.0 ou superior.
+Leitura direta de PDFs no provedor escolhido, recentes com retomada e compartilhamento, sem importar cópias. Leitor com controles compactos, modo de leitura por toque, navegação por gesto, zoom animado e deslocamento com inércia. Android 8.0 ou superior.
 
-A workflow [PDFCrate APK](https://github.com/Azidales/PDFCrate/actions/workflows/android-apk.yml) gera o arquivo instalável no artefato `PDFCrate-0.2.0-alpha-apk`. A geração e os testes são verificados por execução; consulte o resultado do commit escolhido antes de instalar.
+A workflow [PDFCrate APK](https://github.com/Azidales/PDFCrate/actions/workflows/android-apk.yml) gera uma release **sem assinatura**. A distribuição instalável é assinada com a chave fixa, mantida fora do repositório. Veja [recentes e assinatura](docs/RECENTES_E_ASSINATURA.md) e [procedimento de assinatura](signing/README.md).
 
 É uma versão inicial de leitura. Anotações, formulários, PDFs com senha e busca no texto fazem parte de etapas posteriores. Veja [funções, instalação e limitações](docs/PRIMEIRO_APK.md).
 
