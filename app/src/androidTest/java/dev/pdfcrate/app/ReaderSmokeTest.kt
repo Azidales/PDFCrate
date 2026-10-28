@@ -124,6 +124,8 @@ class ReaderSmokeTest {
     }
 
     private fun saveScreenshot(name: String) {
+        compose.waitForIdle()
+        android.os.SystemClock.sleep(350) // Let the platform dialog dismissal animation finish.
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
         try {

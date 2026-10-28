@@ -55,11 +55,15 @@ class MainActivity : ComponentActivity() {
         setContent {
             val colors = if (isSystemInDarkTheme()) darkColorScheme(
                 primary = Color(0xFFA8D2BC), onPrimary = Color(0xFF123526),
+                secondary = Color(0xFFB7CBB5), onSecondary = Color(0xFF233627),
+                secondaryContainer = Color(0xFF384B3A), onSecondaryContainer = Color(0xFFDAE8D6),
                 primaryContainer = Color(0xFF254C3D), onPrimaryContainer = Color(0xFFD9EDDF),
                 background = Color(0xFF121714), surface = Color(0xFF121714),
                 surfaceContainer = Color(0xFF1C241F), surfaceContainerLow = Color(0xFF19201B)
             ) else lightColorScheme(
                 primary = Color(0xFF285C43), onPrimary = Color.White,
+                secondary = Color(0xFF526653), onSecondary = Color.White,
+                secondaryContainer = Color(0xFFDCE8D8), onSecondaryContainer = Color(0xFF1E3523),
                 primaryContainer = Color(0xFFE1EBDD), onPrimaryContainer = Color(0xFF1A3928),
                 background = Color(0xFFF6F7F2), surface = Color(0xFFF6F7F2),
                 surfaceContainer = Color(0xFFEBEEE6), surfaceContainerLow = Color(0xFFF0F2EC),
@@ -289,7 +293,7 @@ private fun RecentCard(document: LibraryDocument, model: ReaderModel, onRemove: 
             horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Thumbnail(document, model, Modifier.size(70.dp, 98.dp))
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                Text("CONTINUAR LEITURA", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
+                Text("CONTINUAR", style = MaterialTheme.typography.labelSmall, fontWeight = FontWeight.SemiBold, letterSpacing = 1.sp)
                 Text(document.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.SemiBold,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text("Página ${document.page + 1}${if (document.pages > 0) " de ${document.pages}" else ""}",

@@ -26,7 +26,7 @@ class ReaderFrameTest {
     @Test fun zoomUsesHardwareDrawingAndReportsFrameDurations() {
         // Tests may execute with another suite's history, so the About menu always exposes the sample.
         compose.onNodeWithContentDescription("Sobre o PDFCrate").performClick()
-        compose.onNodeWithText("Experimentar exemplo").performClick()
+        compose.onNode(hasText("Experimentar exemplo") and hasAnyAncestor(isDialog())).performClick()
         compose.waitUntil(20_000) { compose.onAllNodesWithText("1 / 3").fetchSemanticsNodes().isNotEmpty() }
         val activity = compose.activity
         val instrumentation = InstrumentationRegistry.getInstrumentation()
@@ -57,6 +57,7 @@ class ReaderFrameTest {
                 .put("p50Ms", samples[samples.size / 2] / 1_000_000.0)
                 .put("p95Ms", samples[((samples.size - 1) * .95).toInt()] / 1_000_000.0)
                 .put("overBudget", samples.count { it > budget })
+            android.util.Log.i("PDFCrateFrames", report.toString())
             instrumentation.sendStatus(2, Bundle().apply { putString("stream", "PDFCRATE_FRAME_METRICS $report\n") })
             // Emulators are not a device FPS guarantee. Do not turn their timing into a hard 60/120 FPS assertion.
             instrumentation.runOnMainSync { assertEquals(1f, reader.zoomFactor, .02f) }
