@@ -16,7 +16,23 @@ concurrency:
 jobs:
   build-and-test:
     runs-on: ubuntu-24.04
-    timeout-minutes: 40
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 26
+            image: 26
+            target: default
+          - api: 33
+            image: 33
+            target: default
+          - api: 35
+            image: 35
+            target: default
+          - api: 36
+            image: 36-ext19
+            target: google_apis
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -30,12 +46,17 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.13'
-          cache-read-only: false
+          cache-read-only: ${{ matrix.api != 36 }}
       - name: Install Android SDK
         run: sdkmanager 'platforms;android-36' 'platforms;android-36-ext19' 'build-tools;36.0.0'
       - name: Build APK and check lint
+        if: matrix.api == 36
         run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest :app:assembleRelease :app:lintDebug :app:lintRelease
+      - name: Build instrumentation packages
+        if: matrix.api != 36
+        run: gradle --no-daemon :app:assembleDebug :app:assembleDebugAndroidTest
       - name: Publish unsigned release for private signing
+        if: matrix.api == 36
         uses: actions/upload-artifact@v4
         with:
           name: PDFCrate-0.4.0-unsigned-release
@@ -47,42 +68,20 @@ jobs:
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
-      - name: Test on Android 8
+      - name: Test on Android API ${{ matrix.api }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
-          api-level: 26
+          api-level: ${{ matrix.api }}
+          system-image-api-level: ${{ matrix.image }}
+          target: ${{ matrix.target }}
           arch: x86_64
           disable-animations: false
-          script: bash scripts/test-reader.sh 26
-      - name: Test on Android 13
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 33
-          arch: x86_64
-          disable-animations: false
-          script: bash scripts/test-reader.sh 33
-      - name: Test native PDF on Android 15
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 35
-          arch: x86_64
-          disable-animations: false
-          script: bash scripts/test-reader.sh 35
-      - name: Test on Android 16 with native PDF extension 19
-        if: ${{ !cancelled() }}
-        uses: reactivecircus/android-emulator-runner@v2
-        with:
-          api-level: 36
-          system-image-api-level: 36-ext19
-          target: google_apis
-          arch: x86_64
-          disable-animations: false
-          script: bash scripts/test-reader.sh 36
+          script: bash scripts/test-reader.sh ${{ matrix.api }}
       - name: Publish verification reports
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: PDFCrate-verification
+          name: PDFCrate-verification-api-${{ matrix.api }}
           path: |
             app/build/reports/
             app/build/outputs/androidTest-results/
