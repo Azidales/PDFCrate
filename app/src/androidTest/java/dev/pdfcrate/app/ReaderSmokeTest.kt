@@ -1,0 +1,89 @@
+package dev.pdfcrate.app
+
+import android.graphics.Color
+import androidx.compose.ui.test.*
+import androidx.compose.ui.test.junit4.createAndroidComposeRule
+import androidx.test.ext.junit.runners.AndroidJUnit4
+import androidx.test.platform.app.InstrumentationRegistry
+import org.junit.Assert.*
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import java.io.File
+
+@RunWith(AndroidJUnit4::class)
+class ReaderSmokeTest {
+    @get:Rule val compose = createAndroidComposeRule<MainActivity>()
+
+    @Test fun openNavigateJumpZoomAndReturnToLibrary() {
+        compose.onNodeWithText("Experimentar exemplo").performClick()
+        compose.waitUntil(20_000) {
+            compose.onAllNodesWithText("1 / 3").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Anterior").assertIsNotEnabled()
+        compose.onNodeWithText("Próxima").performClick()
+        compose.waitUntil(20_000) {
+            compose.onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("+ Zoom").performClick()
+        compose.onNodeWithText("Ajustar").performClick()
+        compose.onNodeWithText("2 / 3").performClick()
+        compose.onNodeWithText("Página de 1 a 3").performTextInput("3")
+        compose.onNodeWithText("Ir", useUnmergedTree = true).performClick()
+        compose.waitUntil(20_000) {
+            compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Próxima").assertIsNotEnabled()
+        saveScreenshot("reader-page-3.png")
+        compose.onNodeWithText("Voltar").performClick()
+        compose.onNodeWithText("Continuar na página 3").assertExists()
+        compose.onNodeWithText("Favoritar").performClick()
+        compose.onNodeWithText("Favoritos").performClick()
+        compose.onNodeWithText("Bem-vindo ao PDFCrate.pdf").performClick()
+        compose.waitUntil(20_000) {
+            compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty()
+        }
+        compose.onNodeWithText("Voltar").performClick()
+        compose.onNodeWithText("Remover cópia").performClick()
+        compose.onNodeWithText("Remover", useUnmergedTree = true).performClick()
+        compose.onNodeWithText("Bem-vindo ao PDFCrate.pdf").assertDoesNotExist()
+    }
+
+    @Test fun rendererProducesNonblankPagesAndRejectsInvalidInput() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val library = DocumentLibrary(context)
+        val sample = library.sample()
+        try {
+            PdfSession(library.file(sample.id)).use { session ->
+                assertEquals(3, session.pageCount)
+                val bitmap = session.render(2)
+                try {
+                    val pixels = IntArray(bitmap.width * bitmap.height)
+                    bitmap.getPixels(pixels, 0, bitmap.width, 0, 0, bitmap.width, bitmap.height)
+                    assertTrue(pixels.count { Color.red(it) < 128 } > 100)
+                    assertTrue(bitmap.width <= 2200 && bitmap.height <= 2200)
+                } finally { bitmap.recycle() }
+                try { session.render(3); fail("Out-of-range page was accepted") }
+                catch (_: IllegalArgumentException) { }
+            }
+        } finally { library.file(sample.id).delete() }
+        val invalid = File(context.cacheDir, "invalid-reader-test.pdf")
+        invalid.writeText("not a PDF")
+        try {
+            try { PdfSession(invalid).use { fail("Invalid PDF was accepted") } }
+            catch (_: java.io.IOException) { }
+        } finally { invalid.delete() }
+    }
+
+    private fun saveScreenshot(name: String) {
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
+        try {
+            val directory = File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots")
+            directory.mkdirs()
+            File(directory, name).outputStream().use {
+                bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it)
+            }
+        } finally { bitmap.recycle() }
+    }
+}

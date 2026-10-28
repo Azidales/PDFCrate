@@ -14,3 +14,4 @@ dependencyResolutionManagement {
 }
 rootProject.name = "PDFCrate"
 include(":engine-lab")
+include(":app")
