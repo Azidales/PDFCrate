@@ -1,0 +1,62 @@
+name: Android engine lab
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: engine-lab-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  instrumented-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [26, 36]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: 'platform-tools'
+          log-accepted-android-sdk-licenses: false
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.13'
+      - name: Install compile SDK
+        run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Compile and lint
+        run: gradle --no-daemon :engine-lab:assembleDebug :engine-lab:assembleDebugAndroidTest :engine-lab:lintDebug
+      - name: Run on Android
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          arch: x86_64
+          disable-animations: true
+          script: gradle --no-daemon :engine-lab:connectedDebugAndroidTest
+      - name: Upload test reports and experimental APKs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: engine-lab-api-${{ matrix.api }}
+          path: |
+            engine-lab/build/reports/
+            engine-lab/build/outputs/androidTest-results/
+            engine-lab/build/outputs/apk/
+          if-no-files-found: warn

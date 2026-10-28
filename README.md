@@ -1,17 +1,26 @@
 # PDFCrate
 
-Leitor de PDF nativo para Android, com foco em leitura, anotações e formulários. Sem anúncios, IA, rastreadores ou conta obrigatória. Processamento local e funcionamento offline.
+Leitor de PDF nativo para Android. Sem anúncios, IA, rastreadores ou conta obrigatória. Processamento local e funcionamento offline.
 
-## Estado do projeto
+## APK atual — 0.4.0-alpha
 
-Planejamento inicial. O aplicativo ainda não foi implementado e não há APK disponível.
+Leitura direta de PDFs no provedor escolhido, recentes com retomada e compartilhamento, sem importar cópias. Leitor com controles compactos, modo de leitura por toque, navegação por gesto, zoom animado e deslocamento com inércia. Android 8.0 ou superior.
 
-## V1
+A workflow [PDFCrate APK](https://github.com/Azidales/PDFCrate/actions/workflows/android-apk.yml) gera uma release **sem assinatura**. A distribuição instalável é assinada com a chave fixa, mantida fora do repositório. Veja [recentes e assinatura](docs/RECENTES_E_ASSINATURA.md) e [procedimento de assinatura](signing/README.md).
 
-O [plano de construção da V1](docs/PLANO_V1.md) descreve as funções, os critérios de aceite, as etapas e a estratégia de testes.
+Busca e seleção de texto, PDFs com senha, formulários e anotações usam as APIs nativas disponíveis no aparelho. A leitura básica continua no Android 8+, incluindo Android 13. Veja [funções, instalação e limitações](docs/PRIMEIRO_APK.md).
 
-Primeiro marco: validar o motor de PDF, sua licença e o suporte a texto, anotações, formulários e salvamento interoperável.
+Veja [interface e fluidez](docs/INTERFACE_E_FLUIDEZ.md) para detalhes de VSync, cache e medição de frames.
 
-## Tecnologia proposta
+Texto, senha, formulários e anotações são habilitados conforme as APIs nativas presentes no sistema. Veja a [matriz de compatibilidade, incluindo Android 13](docs/NATIVOS_COMPATIBILIDADE.md).
 
-Kotlin e Jetpack Compose. Motor de PDF, versões Android e licença do projeto serão definidos após a prova técnica.
+## Desenvolvimento
+
+Aplicativo em Kotlin e Jetpack Compose, usando o renderizador do Android. JDK 17, Gradle 8.13 e SDK Android 36 com extensão 19.
+
+```sh
+gradle :app:assembleDebug :app:lintDebug
+gradle :app:connectedDebugAndroidTest
+```
+
+O [plano da V1](docs/PLANO_V1.md) descreve o escopo completo e os critérios de aceite. O [laboratório do motor](engine-lab/README.md) avalia separadamente alternativas para futura edição; suas bibliotecas experimentais não entram no APK do leitor.
