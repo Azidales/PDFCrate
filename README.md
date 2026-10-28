@@ -8,7 +8,7 @@ Leitura direta de PDFs no provedor escolhido, recentes com retomada e compartilh
 
 A workflow [PDFCrate APK](https://github.com/Azidales/PDFCrate/actions/workflows/android-apk.yml) gera uma release **sem assinatura**. A distribuição instalável é assinada com a chave fixa, mantida fora do repositório. Veja [recentes e assinatura](docs/RECENTES_E_ASSINATURA.md) e [procedimento de assinatura](signing/README.md).
 
-É uma versão inicial de leitura. Anotações, formulários, PDFs com senha e busca no texto fazem parte de etapas posteriores. Veja [funções, instalação e limitações](docs/PRIMEIRO_APK.md).
+Busca e seleção de texto, PDFs com senha, formulários e anotações usam as APIs nativas disponíveis no aparelho. A leitura básica continua no Android 8+, incluindo Android 13. Veja [funções, instalação e limitações](docs/PRIMEIRO_APK.md).
 
 Veja [interface e fluidez](docs/INTERFACE_E_FLUIDEZ.md) para detalhes de VSync, cache e medição de frames.
 
@@ -16,7 +16,7 @@ Texto, senha, formulários e anotações são habilitados conforme as APIs nativ
 
 ## Desenvolvimento
 
-Aplicativo em Kotlin e Jetpack Compose, usando o renderizador do Android. JDK 17, Gradle 8.13 e SDK Android 36.
+Aplicativo em Kotlin e Jetpack Compose, usando o renderizador do Android. JDK 17, Gradle 8.13 e SDK Android 36 com extensão 19.
 
 ```sh
 gradle :app:assembleDebug :app:lintDebug

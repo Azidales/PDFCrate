@@ -88,6 +88,11 @@ class NativeEngineTest {
                 pdf.moveAnnotation(0, stamp.id, RectF(100f, 350f, 280f, 430f))
                 pdf.removeAnnotation(0, note.id); pdf.undoAnnotation()
                 assertTrue(pdf.annotations(0).any { it.text == "Updated note" })
+                while (pdf.canUndo()) pdf.undoAnnotation()
+                assertEquals(initial, pdf.annotations(0).size)
+                while (pdf.canRedo()) pdf.redoAnnotation()
+                assertEquals(initial + 3, pdf.annotations(0).size)
+                assertTrue(pdf.annotations(0).any { it.text == "Updated note" })
                 pdf.write(output(saved))
             }
             assertArrayEquals(original, source.readBytes())

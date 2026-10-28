@@ -14,6 +14,8 @@ Android 8.0 (API 26) ou superior. Interface em Kotlin/Compose e leitura com PdfR
 
 Remover dos recentes não apaga o arquivo. O provedor controla a disponibilidade; arquivos de nuvem podem depender de rede ou da opção offline oferecida pelo próprio provedor. Não há cópia local automática de fallback.
 
+Quando o módulo nativo oferece suporte: senha, busca/seleção/cópia de texto e edição de campos. Com extensão 18+, também há destaques, notas, desenho, assinatura desenhada, edição de anotações e desfazer/refazer. Salvar cópia é explícito; salvar no original prepara recuperação antes da gravação. Veja a [matriz de compatibilidade](NATIVOS_COMPATIBILIDADE.md).
+
 ## Atualizações e instalação
 
 A distribuição final usa chave fixa; ela fica fora do Git. A CI pública gera uma release sem assinatura, que precisa passar pelo procedimento em signing/README.md antes de instalar. Não confundir o artefato unsigned com o APK final assinado.
@@ -28,11 +30,11 @@ Alguns provedores só oferecem streams sem acesso aleatório e não funcionam co
 
 ## Desenvolvimento e validação
 
-JDK 17, Gradle 8.13 e SDK Android 36:
+JDK 17, Gradle 8.13 e SDK Android 36 com extensão 19:
 
 ```sh
 gradle :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease
 gradle :app:connectedDebugAndroidTest
 ```
 
-A CI verifica os fluxos de leitura em APIs 26 e 36, acesso ao provedor original, substituição/remoção do arquivo externo, cache, tempos de frame e uma atualização real de pacote por adb install -r. Relatórios detalhados acompanham cada execução. O motor experimental PDFBox permanece restrito aos testes do laboratório, fora do APK do leitor.
+A CI verifica os fluxos de leitura em APIs 26, 33, 35 e 36/extensão 19, acesso ao provedor original, substituição/remoção do arquivo externo, cache, tempos de frame e uma atualização real de pacote por adb install -r. Relatórios detalhados acompanham cada execução. PDFBox é usado apenas nos testes para gerar documentos sintéticos e verificar a exportação de maneira independente; não integra o APK distribuído.

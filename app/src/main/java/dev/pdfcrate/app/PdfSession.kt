@@ -84,6 +84,7 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
     @Synchronized fun addAnnotation(index: Int, raw: Any) {
         check(canAnnotate)
         val id = backend.page(index).use { it.add(raw) }
+        check(id >= 0) { "Não foi possível adicionar a anotação." }
         undo.add(AnnotationChange(index, id, null, raw)); redo.clear(); cache.evictAll()
     }
     @Synchronized fun removeAnnotation(index: Int, id: Int) {
@@ -131,7 +132,16 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
         backend.page(change.page).use { page ->
             when {
                 to == null -> page.remove(change.id)
-                from == null -> change.id = page.add(to)
+                from == null -> {
+                    val previousId = change.id
+                    val restoredId = page.add(to)
+                    check(restoredId >= 0) { "Não foi possível restaurar a anotação." }
+                    // Native IDs change after a deleted annotation is recreated. Every command
+                    // for this annotation must follow the restored identity, including older edits.
+                    (undo + redo).filter { it.page == change.page && it.id == previousId }
+                        .forEach { it.id = restoredId }
+                    change.id = restoredId
+                }
                 else -> check(page.update(change.id, to))
             }
         }
