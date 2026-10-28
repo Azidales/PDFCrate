@@ -3,7 +3,6 @@
 import argparse
 import hashlib
 from pathlib import Path
-import ssl
 import subprocess
 import tempfile
 
@@ -35,7 +34,7 @@ with tempfile.TemporaryDirectory(prefix='pdfcrate-sign-') as directory:
     aligned = Path(directory) / 'aligned.apk'
     subprocess.run([str(args.build_tools / 'zipalign'), '-P', '16', '-f', '4', str(args.apk), str(aligned)], check=True)
     subprocess.run([str(args.build_tools / 'apksigner'), 'sign', '--ks', str(args.keystore), '--ks-type', 'PKCS12',
-        '--ks-key-alias', 'pdfcrate', '--ks-pass', f'file:{args.password_file}', '--key-pass', f'file:{args.password_file}',
+        '--ks-key-alias', 'pdfcrate', '--ks-pass', f'file:{args.password_file}',
         '--min-sdk-version', '26', '--out', str(args.output), str(aligned)], check=True)
 verified = subprocess.run([str(args.build_tools / 'apksigner'), 'verify', '--verbose', '--print-certs', str(args.output)],
     check=True, capture_output=True, text=True).stdout

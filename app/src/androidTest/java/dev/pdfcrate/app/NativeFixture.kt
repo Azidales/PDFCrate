@@ -15,7 +15,7 @@ import com.tom_roush.pdfbox.pdmodel.interactive.form.*
 import java.io.File
 
 internal fun nativeFixture(context: Context, encrypted: Boolean = false): File {
-    PDFBoxResourceLoader.init(context)
+    PDFBoxResourceLoader.init(androidx.test.platform.app.InstrumentationRegistry.getInstrumentation().context)
     val file = File.createTempFile("native-fixture-", ".pdf", context.cacheDir)
     PDDocument().use { document ->
         val page = PDPage(PDRectangle.A4); document.addPage(page)

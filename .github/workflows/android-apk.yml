@@ -69,6 +69,7 @@ jobs:
           disable-animations: false
           script: bash scripts/test-reader.sh 35
       - name: Test on Android 16 with native PDF extension 19
+        if: ${{ !cancelled() }}
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: 36
