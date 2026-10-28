@@ -62,6 +62,7 @@ class DocumentLibrary(private val context: Context) {
     }
 
     fun import(uri: Uri): LibraryDocument {
+        require(uri.scheme == "content") { "Escolha o PDF pelo seletor de arquivos do Android." }
         val name = context.contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME),
             null, null, null)?.use { cursor ->
             if (cursor.moveToFirst()) cursor.getString(0) else null
@@ -100,7 +101,8 @@ class DocumentLibrary(private val context: Context) {
     fun sample(): LibraryDocument {
         val entry = LibraryDocument(UUID.randomUUID().toString(), "Bem-vindo ao PDFCrate.pdf")
         try {
-            PdfDocument().use { pdf ->
+            val pdf = PdfDocument()
+            try {
                 val titles = listOf("Seu PDF. Seu espaço.", "Leitura sem distrações.", "Seus documentos, aqui.")
                 val lines = listOf(
                     listOf("PDFCrate", "Um leitor local, sem anúncios e sem IA.", "Deslize para mover a página ampliada.", "Use dois dedos para ampliar.", "Toque duas vezes para alternar o zoom."),
@@ -126,7 +128,7 @@ class DocumentLibrary(private val context: Context) {
                     pdf.finishPage(page)
                 }
                 file(entry.id).outputStream().use { pdf.writeTo(it) }
-            }
+            } finally { pdf.close() }
             return entry
         } catch (failure: Throwable) {
             file(entry.id).delete()

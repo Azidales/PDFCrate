@@ -34,6 +34,8 @@ A workflow `Android engine lab` executa em API 26 e 36 e publica relatórios. Os
 
 ## Estado da validação
 
-Implementado, mas **ainda não compilado nem executado** no momento da criação: o ambiente local não dispõe de SDK/Gradle/emulador e o proxy do terminal está indisponível. A primeira execução da CI precisa confirmar resolução de dependências, compilação e resultados. Não considerar o motor aprovado antes disso.
+Compilação, lint e testes instrumentados passaram nas APIs 26 e 36 na [execução 40625377796](https://github.com/Azidales/PDFCrate/actions/runs/40625377796), após corrigir a instalação do SDK na CI. O ambiente local não dispõe de SDK/Gradle/emulador e o proxy do terminal está indisponível; a validação foi realizada nos runners do GitHub.
+
+Esse resultado valida somente o experimento descrito acima. Não aprova o motor para produção nem encerra o M0. O aplicativo de leitura usa o renderizador da plataforma sem incluir PDFBox-Android.
 
 Consulte a [decisão provisória](../docs/adr/0001-avaliacao-motor-pdf.md) para restrições e próximos passos.

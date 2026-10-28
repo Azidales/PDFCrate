@@ -35,6 +35,8 @@ class ReaderSmokeTest {
         }
         compose.onNodeWithText("Próxima").assertIsNotEnabled()
         saveScreenshot("reader-page-3.png")
+        compose.activityRule.scenario.recreate()
+        compose.onNodeWithText("3 / 3").assertExists()
         compose.onNodeWithText("Voltar").performClick()
         compose.onNodeWithText("Continuar na página 3").assertExists()
         compose.onNodeWithText("Favoritar").performClick()
@@ -73,6 +75,40 @@ class ReaderSmokeTest {
             try { PdfSession(invalid).use { fail("Invalid PDF was accepted") } }
             catch (_: java.io.IOException) { }
         } finally { invalid.delete() }
+    }
+
+    @Test fun opensPdfFromContentUriAndKeepsAnOfflineCopy() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val library = DocumentLibrary(context)
+        val source = library.sample()
+        val sourceFile = library.file(source.id)
+        val uri = androidx.core.content.FileProvider.getUriForFile(context,
+            "${context.packageName}.files", sourceFile, "Arquivo externo.pdf")
+        try {
+            compose.activity.runOnUiThread {
+                compose.activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW)
+                    .setClass(context, MainActivity::class.java)
+                    .setDataAndType(uri, "application/pdf")
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                        android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION))
+            }
+            compose.waitUntil(20_000) {
+                compose.onAllNodesWithText("1 / 3").fetchSemanticsNodes().isNotEmpty()
+            }
+            assertTrue(sourceFile.delete())
+            compose.onNodeWithText("Próxima").performClick()
+            compose.waitUntil(20_000) {
+                compose.onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText("Voltar").performClick()
+            compose.onNodeWithText("Arquivo externo.pdf").performClick()
+            compose.waitUntil(20_000) {
+                compose.onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.onNodeWithText("Voltar").performClick()
+            compose.onNodeWithText("Remover cópia").performClick()
+            compose.onNodeWithText("Remover", useUnmergedTree = true).performClick()
+        } finally { sourceFile.delete() }
     }
 
     private fun saveScreenshot(name: String) {

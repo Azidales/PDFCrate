@@ -24,11 +24,13 @@ O laboratório não aprova o motor, não altera o escopo da V1 e não fixa a ver
 
 ## Resultados disponíveis
 
-- Código de testes e CI preparados; execução Android pendente.
+- Compilação, lint e testes do laboratório passaram em APIs 26 e 36 na execução [40625377796](https://github.com/Azidales/PDFCrate/actions/runs/40625377796).
 - Sem medições de latência ou memória e sem resultados em aparelho físico.
 - Sem validação de aparência em Acrobat ou outro leitor de usuário.
 - Sem auditoria de vulnerabilidades concluída.
-- Proxy local indisponível e SDK Android ausente impediram compilação local; a integração GitHub permaneceu acessível.
+- Proxy local indisponível e SDK Android ausente impediram compilação local; a CI do GitHub executou o experimento.
+
+O primeiro APK de leitura usa PdfRenderer da plataforma. O laboratório permanece isolado para investigar edição e formulários; nenhuma biblioteca experimental é incorporada ao APK.
 
 ## Saída necessária para encerrar M0
 
