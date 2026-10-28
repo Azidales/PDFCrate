@@ -54,6 +54,13 @@ jobs:
           arch: x86_64
           disable-animations: false
           script: bash scripts/test-reader.sh 26
+      - name: Test on Android 13
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 33
+          arch: x86_64
+          disable-animations: false
+          script: bash scripts/test-reader.sh 33
       - name: Test on Android 16
         uses: reactivecircus/android-emulator-runner@v2
         with:

@@ -5,7 +5,7 @@ cp app/build/outputs/apk/debug/app-debug.apk app/build/upgrade/before.apk
 adb install -r app/build/upgrade/before.apk
 adb install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
 adb shell am instrument -w -r -e class dev.pdfcrate.app.UpgradeContinuityTest -e stage seed dev.pdfcrate.app.test/androidx.test.runner.AndroidJUnitRunner > app/build/upgrade/seed.txt
-if ! rg -q 'OK \(1 test\)' app/build/upgrade/seed.txt; then
+if ! grep -Fq 'OK (1 test)' app/build/upgrade/seed.txt; then
     cat app/build/upgrade/seed.txt
     exit 1
 fi
@@ -14,7 +14,7 @@ pdfcrate_next_code=$((pdfcrate_previous_code + 1))
 gradle --no-daemon -PpdfcrateVersionCode="$pdfcrate_next_code" :app:assembleDebug :app:assembleRelease
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 adb shell am instrument -w -r -e class dev.pdfcrate.app.UpgradeContinuityTest -e stage verify dev.pdfcrate.app.test/androidx.test.runner.AndroidJUnitRunner > app/build/upgrade/verify.txt
-if ! rg -q 'OK \(1 test\)' app/build/upgrade/verify.txt; then
+if ! grep -Fq 'OK (1 test)' app/build/upgrade/verify.txt; then
     cat app/build/upgrade/verify.txt
     exit 1
 fi
