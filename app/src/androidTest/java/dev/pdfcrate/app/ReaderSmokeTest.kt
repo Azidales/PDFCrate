@@ -127,6 +127,7 @@ class ReaderSmokeTest {
         val instrumentation = InstrumentationRegistry.getInstrumentation()
         val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
         try {
+            instrumentation.targetContext.externalMediaDirs // Ensure the app media directory exists on older Android.
             val directory = File(InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
                 ?: File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots").absolutePath)
             directory.mkdirs()

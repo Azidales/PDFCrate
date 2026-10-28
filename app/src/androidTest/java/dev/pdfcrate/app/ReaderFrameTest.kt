@@ -57,7 +57,7 @@ class ReaderFrameTest {
                 .put("p50Ms", samples[samples.size / 2] / 1_000_000.0)
                 .put("p95Ms", samples[((samples.size - 1) * .95).toInt()] / 1_000_000.0)
                 .put("overBudget", samples.count { it > budget })
-            instrumentation.sendStatus(0, Bundle().apply { putString("stream", "PDFCRATE_FRAME_METRICS $report\n") })
+            instrumentation.sendStatus(2, Bundle().apply { putString("stream", "PDFCRATE_FRAME_METRICS $report\n") })
             // Emulators are not a device FPS guarantee. Do not turn their timing into a hard 60/120 FPS assertion.
             instrumentation.runOnMainSync { assertEquals(1f, reader.zoomFactor, .02f) }
         } finally {

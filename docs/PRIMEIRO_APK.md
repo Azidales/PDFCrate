@@ -1,13 +1,15 @@
-# PDFCrate 0.1.0-alpha
+# PDFCrate 0.2.0-alpha
 
-Primeiro leitor instalável. Android 8.0 (API 26) ou superior.
+Leitor com interface refinada e animações sincronizadas à tela. Android 8.0 (API 26) ou superior.
 
 ## Disponível
 
 - Abrir PDFs no seletor Android, por Abrir com ou pelo compartilhamento de outro aplicativo.
 - Renderização local com o motor do próprio Android.
-- Página anterior/próxima e salto para uma página.
-- Pinça para zoom, arraste, toque duplo, botões de zoom e ajuste à tela.
+- Página anterior/próxima, gesto horizontal na página ajustada e salto para uma página.
+- Pinça para zoom, arraste com inércia, toque duplo, zoom animado e ajuste à tela.
+- Toque simples para ocultar ou mostrar os controles.
+- Miniaturas e cartão para continuar a leitura.
 - Biblioteca de cópias locais, busca por nome, favoritos e retomada da última página.
 - Compartilhar uma cópia por outro aplicativo.
 - Tema claro/escuro conforme o sistema.
@@ -31,6 +33,6 @@ gradle :app:assembleDebug :app:lintDebug
 adb install -r app/build/outputs/apk/debug/app-debug.apk
 ```
 
-A workflow `PDFCrate APK` publica o arquivo instalável no artefato `PDFCrate-0.1.0-alpha-apk` e executa testes instrumentados. O APK é assinado com chave de debug para avaliação; não é uma versão de loja. Builds em outros ambientes podem usar outra chave de debug e exigir desinstalar a versão anterior, o que apaga a biblioteca local. Uma chave estável de distribuição deverá ser configurada antes de releases para usuários.
+A workflow `PDFCrate APK` publica o arquivo instalável no artefato `PDFCrate-0.2.0-alpha-apk` e executa testes instrumentados. O APK é assinado com chave de debug para avaliação; não é uma versão de loja. Builds em outros ambientes podem usar outra chave de debug e exigir desinstalar a versão anterior, o que apaga a biblioteca local. Uma chave estável de distribuição deverá ser configurada antes de releases para usuários.
 
-O teste de interface abre o exemplo, muda páginas, salta à última página, aciona zoom/ajuste, retorna à biblioteca, favorita, reabre e remove a cópia. Outro teste confere renderização não vazia, limite de imagem e rejeição de entradas inválidas.
+Os testes também conferem cache, aceleração por hardware e registram tempos de frame durante o zoom. O teste de interface abre o exemplo, muda páginas, salta à última página, aciona zoom/ajuste, retorna à biblioteca, favorita, reabre e remove a cópia. Outro teste confere renderização não vazia, limite de imagem e rejeição de entradas inválidas.
