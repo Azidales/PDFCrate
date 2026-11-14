@@ -1,5 +1,5 @@
 plugins {
-    id("com.android.library")
+    alias(libs.plugins.android.library)
 }
 
 android {
@@ -20,7 +20,7 @@ android {
 
 dependencies {
     // Experimental candidate, confined to instrumentation; not a product dependency.
-    androidTestImplementation("com.tom-roush:pdfbox-android:2.0.27.0")
-    androidTestImplementation("androidx.test:runner:1.6.2")
-    androidTestImplementation("androidx.test.ext:junit:1.2.1")
+    androidTestImplementation(libs.pdfbox.android)
+    androidTestImplementation(libs.androidx.test.runner)
+    androidTestImplementation(libs.androidx.test.ext.junit)
 }
