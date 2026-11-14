@@ -18,6 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.Collections
+import dev.pdfcrate.app.reader.ZoomPageView
 
 @RunWith(AndroidJUnit4::class)
 class ReaderFrameTest {
@@ -26,6 +27,7 @@ class ReaderFrameTest {
     @Test fun zoomUsesHardwareDrawingAndReportsFrameDurations() {
         // Tests may execute with another suite's history, so the About menu always exposes the sample.
         compose.onNodeWithContentDescription("Sobre o PDFCrate").performClick()
+        compose.saveScreenshot("about.png")
         compose.onNode(hasText("Experimentar exemplo") and hasAnyAncestor(isDialog())).performClick()
         compose.waitUntil(20_000) { compose.onAllNodesWithText("1 / 3").fetchSemanticsNodes().isNotEmpty() }
         val activity = compose.activity

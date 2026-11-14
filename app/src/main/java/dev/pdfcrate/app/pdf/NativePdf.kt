@@ -1,4 +1,4 @@
-package dev.pdfcrate.app
+package dev.pdfcrate.app.pdf
 
 import android.annotation.SuppressLint
 import android.graphics.*
@@ -18,11 +18,12 @@ object NativePdfSupport {
     val extension: Int get() = if (Build.VERSION.SDK_INT >= 31) SdkExtensions.getExtensionVersion(Build.VERSION_CODES.S) else 0
     val advanced: Boolean get() = Build.VERSION.SDK_INT >= 35 || extension >= 13
     val annotations: Boolean get() = extension >= 18
-    fun description() = "Android ${Build.VERSION.RELEASE} · texto/senha/formulários: ${if (advanced) "disponíveis" else "indisponíveis"} · anotações: ${if (annotations) "disponíveis" else "indisponíveis"}"
+    /** Diagnostic line for logs and test reports; the interface builds its own localized text. */
+    fun description() = "Android ${Build.VERSION.RELEASE} (API ${Build.VERSION.SDK_INT}, extension S $extension) · text/password/forms=$advanced · annotations=$annotations"
 }
 
-class PdfPasswordRequired : IOException("Senha necessária ou incorreta")
-class PdfFeatureUnavailable : IOException("Este recurso nativo não está disponível neste sistema Android.")
+class PdfPasswordRequired : IOException("Password required or incorrect")
+class PdfFeatureUnavailable : IOException("Native PDF feature unavailable on this Android system")
 data class PdfText(val text: String, val bounds: List<RectF>)
 data class PdfHit(val page: Int, val bounds: List<RectF>)
 data class PdfSelection(val text: String = "", val bounds: List<RectF> = emptyList())
@@ -32,7 +33,8 @@ data class PdfField(val index: Int, val label: String, val kind: FieldKind, val 
     val readOnly: Boolean, val multiline: Boolean, val maxLength: Int, val bounds: Rect,
     val choices: List<PdfChoice>, val multiSelect: Boolean)
 data class FieldChange(val index: Int, val text: String? = null, val indices: IntArray? = null, val click: Point? = null)
-data class PdfAnnotationEntry(val id: Int, val kind: String, val text: String, val bounds: RectF, internal val raw: Any)
+enum class AnnotationKind { HIGHLIGHT, FREE_TEXT, STAMP, OTHER }
+data class PdfAnnotationEntry(val id: Int, val kind: AnnotationKind, val text: String, val bounds: RectF, internal val raw: Any)
 
 internal class PdfPageAccess(
     val width: Int, val height: Int,
@@ -120,7 +122,7 @@ private class ExtensionPdfBackend(input: ParcelFileDescriptor, password: String?
         val identities by lazy {
             val native = page.pageAnnotations
             val stable = annotationIds.getOrPut(index) { native.map { nextAnnotationId++ }.toMutableList() }
-            check(stable.size == native.size) { "A lista de anotações mudou inesperadamente." }
+            check(stable.size == native.size) { "Annotation list changed unexpectedly" }
             stable to stable.zip(native.map { it.first }).toMap().toMutableMap()
         }
         return PdfPageAccess(page.width, page.height,
@@ -139,7 +141,7 @@ private class ExtensionPdfBackend(input: ParcelFileDescriptor, password: String?
                 checkAnnotations()
                 val (stable, nativeIds) = identities
                 val nativeId = page.addPageAnnotation(it as PdfAnnotation)
-                check(nativeId >= 0) { "Não foi possível adicionar a anotação." }
+                check(nativeId >= 0) { "Annotation was not added" }
                 val id = nextAnnotationId++
                 stable.add(id); nativeIds[id] = nativeId
                 id
@@ -169,7 +171,7 @@ private object NativePdfMapping {
     fun selection(contents: List<PdfPageTextContent>?) = PdfSelection(
         contents?.joinToString("\n") { it.text }.orEmpty(), contents?.flatMap { it.bounds.map(::RectF) }.orEmpty())
     fun field(widget: FormWidgetInfo) = PdfField(widget.widgetIndex,
-        widget.accessibilityLabel?.takeIf { it.isNotBlank() } ?: "Campo ${widget.widgetIndex + 1}",
+        widget.accessibilityLabel?.takeIf { it.isNotBlank() }.orEmpty(),
         when (widget.widgetType) {
             FormWidgetInfo.WIDGET_TYPE_TEXTFIELD -> FieldKind.TEXT
             FormWidgetInfo.WIDGET_TYPE_CHECKBOX -> FieldKind.CHECKBOX
@@ -193,10 +195,10 @@ private object NativePdfMapping {
 @SuppressLint("NewApi")
 internal object NativeAnnotations {
     fun entry(id: Int, value: PdfAnnotation): PdfAnnotationEntry = when (value) {
-        is HighlightAnnotation -> PdfAnnotationEntry(id, "Destaque", "", union(value.boundsList), value)
-        is FreeTextAnnotation -> PdfAnnotationEntry(id, "Texto", value.textContent, RectF(value.bounds), value)
-        is StampAnnotation -> PdfAnnotationEntry(id, "Desenho ou assinatura", "", RectF(value.bounds), value)
-        else -> PdfAnnotationEntry(id, "Anotação", "", RectF(), value)
+        is HighlightAnnotation -> PdfAnnotationEntry(id, AnnotationKind.HIGHLIGHT, "", union(value.boundsList), value)
+        is FreeTextAnnotation -> PdfAnnotationEntry(id, AnnotationKind.FREE_TEXT, value.textContent, RectF(value.bounds), value)
+        is StampAnnotation -> PdfAnnotationEntry(id, AnnotationKind.STAMP, "", RectF(value.bounds), value)
+        else -> PdfAnnotationEntry(id, AnnotationKind.OTHER, "", RectF(), value)
     }
     fun highlight(bounds: List<RectF>, color: Int): Any = HighlightAnnotation(bounds.map(::RectF)).apply { setColor(color) }
     fun changedText(raw: Any, text: String): Any {

@@ -7,6 +7,8 @@ import androidx.test.platform.app.InstrumentationRegistry
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
+import dev.pdfcrate.app.library.DocumentLibrary
+import dev.pdfcrate.app.pdf.PdfSession
 
 /** Invoked only by test-update.sh, on either side of an actual adb install -r. */
 @RunWith(AndroidJUnit4::class)

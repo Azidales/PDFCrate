@@ -16,6 +16,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
 import java.io.File
+import dev.pdfcrate.app.library.DocumentLibrary
+import dev.pdfcrate.app.pdf.PdfSession
 
 @RunWith(AndroidJUnit4::class)
 class ReaderSmokeTest {
@@ -34,12 +36,12 @@ class ReaderSmokeTest {
         compose.onNodeWithText("Ir", useUnmergedTree = true).performClick()
         awaitPage("3 / 3")
         compose.onNodeWithContentDescription("Próxima").assertIsNotEnabled()
-        saveScreenshot("reader.png")
+        compose.saveScreenshot("reader.png")
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("3 / 3").assertExists()
         compose.onNodeWithContentDescription("Voltar").performClick()
         compose.onNodeWithText("Página 3 de 3").assertExists()
-        saveScreenshot("recents.png")
+        compose.saveScreenshot("recents.png")
         compose.onNodeWithText("Exemplo PDFCrate.pdf").performClick()
         awaitPage("3 / 3")
         compose.onNodeWithContentDescription("Voltar").performClick()
@@ -122,25 +124,13 @@ class ReaderSmokeTest {
             compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
         } catch (failure: Throwable) {
             compose.onRoot(useUnmergedTree = true).printToLog("PDFCrateUITest")
-            saveScreenshot("failure.png")
+            compose.saveScreenshot("failure.png")
             throw failure
         }
     }
     private fun forget(name: String) {
         compose.onNodeWithContentDescription("Opções de $name").performClick()
         compose.onNodeWithText("Remover dos recentes").performClick()
-    }
-    private fun saveScreenshot(name: String) {
-        compose.waitForIdle()
-        android.os.SystemClock.sleep(350)
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
-        try {
-            instrumentation.targetContext.externalMediaDirs
-            val directory = File(InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
-                ?: File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots").absolutePath).apply { mkdirs() }
-            File(directory, name).outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-        } finally { bitmap.recycle() }
     }
 }
 

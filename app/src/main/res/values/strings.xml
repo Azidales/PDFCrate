@@ -1,0 +1,209 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools" tools:locale="pt">
+    <string name="app_name" translatable="false">PDFCrate</string>
+    <string name="pdf_label" translatable="false">PDF</string>
+    <string name="default_document_name">Documento.pdf</string>
+
+    <plurals name="pages">
+        <item quantity="one">%d página</item>
+        <item quantity="many">%d páginas</item>
+        <item quantity="other">%d páginas</item>
+    </plurals>
+
+    <!-- Common actions -->
+    <string name="action_close">Fechar</string>
+    <string name="action_cancel">Cancelar</string>
+    <string name="action_back">Voltar</string>
+    <string name="action_ok">Entendi</string>
+    <string name="action_apply">Aplicar</string>
+    <string name="action_add">Adicionar</string>
+    <string name="action_open">Abrir</string>
+    <string name="action_go">Ir</string>
+    <string name="action_more">Mais opções</string>
+    <string name="action_try_sample">Experimentar exemplo</string>
+
+    <!-- Library -->
+    <string name="library_title">Recentes</string>
+    <string name="library_subtitle">Arquivos no lugar onde você os salvou</string>
+    <string name="library_search_hint">Buscar nos recentes</string>
+    <string name="library_search_clear">Limpar busca</string>
+    <string name="library_open_file">Abrir arquivo</string>
+    <string name="library_about">Sobre o PDFCrate</string>
+    <string name="library_continue">CONTINUAR</string>
+    <string name="library_previous">Abertos anteriormente</string>
+    <string name="library_page_progress">Página %1$d de %2$d</string>
+    <string name="library_page_only">Página %1$d</string>
+    <string name="library_temporary_access">Acesso temporário</string>
+    <string name="library_empty_title">Nenhum arquivo recente</string>
+    <string name="library_empty_body">Toque em Abrir arquivo para escolher um PDF.</string>
+    <string name="library_no_match_title">Nenhum arquivo encontrado</string>
+    <string name="library_no_match_body">Tente outro nome.</string>
+    <string name="library_options">Opções de %1$s</string>
+    <string name="library_share">Compartilhar</string>
+    <string name="library_remove">Remover dos recentes</string>
+
+    <!-- Save recovery -->
+    <string name="recovery_title">Recuperação de gravação</string>
+    <string name="recovery_body">Uma gravação foi interrompida ou falhou. Revise as versões preservadas antes de usar o original.</string>
+    <string name="recovery_open">Abrir alterações recuperadas</string>
+    <string name="recovery_export">Exportar original anterior</string>
+    <string name="recovery_discard">Descartar recuperação</string>
+    <string name="recovery_discard_title">Descartar recuperação?</string>
+    <string name="recovery_discard_body">As versões editada e anterior guardadas para recuperação serão apagadas. Exporte o que precisar antes de continuar.</string>
+
+    <!-- About -->
+    <string name="about_version">Versão %1$s</string>
+    <string name="about_body">O PDF é aberto diretamente no local escolhido. O app guarda apenas o histórico e a última página, sem importar uma cópia. Remover dos recentes não apaga nem altera o arquivo.</string>
+    <string name="about_privacy">Sem anúncios, rastreadores, conta ou acesso à internet. Todo o processamento acontece no aparelho.</string>
+    <string name="about_capabilities">Recursos neste aparelho</string>
+    <string name="about_cap_reading">Leitura, zoom e navegação</string>
+    <string name="about_cap_text">Senha, busca, seleção de texto e formulários</string>
+    <string name="about_cap_annotations">Anotações, desenho e assinatura desenhada</string>
+    <string name="about_cap_available">Disponível</string>
+    <string name="about_cap_unavailable">Indisponível neste sistema</string>
+    <string name="about_system">Android %1$s · extensão PDF %2$d</string>
+    <string name="about_limits">A disponibilidade depende do Android e do módulo PDF instalado. OCR e assinatura com certificado não estão incluídos.</string>
+
+    <!-- Reader -->
+    <string name="reader_subtitle">PDF · %1$s</string>
+    <string name="reader_unsaved">Alterações não salvas</string>
+    <string name="reader_previous">Anterior</string>
+    <string name="reader_next">Próxima</string>
+    <string name="reader_page_indicator">%1$d / %2$d</string>
+    <string name="reader_page_description">Página %1$d de %2$d</string>
+    <string name="reader_zoom_out">Diminuir zoom</string>
+    <string name="reader_zoom_in">Aumentar zoom</string>
+    <string name="reader_fit">Ajustar página</string>
+    <string name="reader_search">Buscar texto</string>
+    <string name="reader_edit">Editar e anotar</string>
+    <string name="reader_save">Salvar alterações</string>
+    <string name="reader_save_copy">Salvar cópia…</string>
+    <string name="reader_share">Compartilhar</string>
+    <string name="reader_page_text">Texto desta página</string>
+    <string name="reader_forms">Formulários desta página</string>
+    <string name="reader_annotations">Anotações desta página</string>
+    <string name="reader_no_text_features">Recursos de texto e edição indisponíveis neste sistema.</string>
+    <string name="reader_no_annotation_features">Este sistema ainda não oferece edição de anotações.</string>
+    <string name="go_to_page_title">Ir para página</string>
+    <string name="go_to_page_label">Página de 1 a %1$d</string>
+
+    <!-- Search -->
+    <string name="search_hint">Buscar no PDF</string>
+    <string name="search_close">Fechar busca</string>
+    <string name="search_clear">Limpar termo</string>
+    <string name="search_previous">Resultado anterior</string>
+    <string name="search_next">Próximo resultado</string>
+    <string name="search_running">Buscando…</string>
+    <string name="search_none">Sem resultados</string>
+    <string name="search_count">%1$d / %2$d</string>
+    <string name="search_count_limited">%1$d / %2$d+</string>
+
+    <!-- Editing tools -->
+    <string name="tool_select">Selecionar</string>
+    <string name="tool_note">Nota</string>
+    <string name="tool_draw">Desenhar</string>
+    <string name="tool_signature">Assinar</string>
+    <string name="tool_forms">Formulário</string>
+    <string name="tool_annotations">Anotações</string>
+    <string name="tool_undo">Desfazer</string>
+    <string name="tool_redo">Refazer</string>
+    <string name="tool_done">Concluir</string>
+    <string name="hint_select">Arraste sobre o texto para selecionar.</string>
+    <string name="hint_draw">Desenhe sobre a página.</string>
+    <string name="hint_note">Arraste para definir a caixa de texto.</string>
+    <string name="hint_signature">Arraste para posicionar e dimensionar a assinatura.</string>
+    <string name="hint_move">Arraste para definir a nova posição e tamanho.</string>
+    <string name="selection_copy">Copiar</string>
+    <string name="selection_highlight">Destacar</string>
+    <string name="selection_underline">Sublinhar</string>
+    <string name="selection_strike">Tachar</string>
+    <string name="selection_clear">Limpar</string>
+
+    <!-- Panels -->
+    <string name="panel_close">Fechar painel</string>
+    <string name="page_text_empty">Esta página não contém texto selecionável.</string>
+    <string name="page_text_copy">Copiar texto</string>
+    <string name="forms_empty">Não há campos compatíveis de formulário nesta página.</string>
+    <string name="field_fallback">Campo %1$d</string>
+    <string name="field_read_only">Somente leitura</string>
+    <string name="field_kind_text">Texto</string>
+    <string name="field_kind_checkbox">Caixa de seleção</string>
+    <string name="field_kind_radio">Opção</string>
+    <string name="field_kind_combo">Lista suspensa</string>
+    <string name="field_kind_list">Lista</string>
+    <string name="field_kind_other">Tipo não editável</string>
+    <string name="field_empty">Vazio</string>
+    <string name="field_fill">Preencher</string>
+    <string name="field_toggle">Alternar</string>
+    <string name="field_select_option">Selecionar</string>
+    <string name="field_choose">Escolher</string>
+    <string name="field_value_label">Valor do campo</string>
+    <string name="annotations_empty">Não há anotações compatíveis nesta página.</string>
+    <string name="annotation_kind_highlight">Destaque</string>
+    <string name="annotation_kind_text">Texto</string>
+    <string name="annotation_kind_stamp">Desenho ou assinatura</string>
+    <string name="annotation_kind_other">Anotação</string>
+    <string name="annotation_edit">Editar</string>
+    <string name="annotation_move">Mover/tamanho</string>
+    <string name="annotation_delete">Apagar</string>
+    <string name="annotation_color">Cor</string>
+    <string name="annotation_edit_title">Editar texto</string>
+    <string name="color_yellow">Amarelo</string>
+    <string name="color_green">Verde</string>
+    <string name="color_pink">Rosa</string>
+
+    <!-- Dialogs -->
+    <string name="password_title">Abrir PDF protegido</string>
+    <string name="password_label">Senha do PDF</string>
+    <string name="password_incorrect">Senha incorreta ou proteção não compatível.</string>
+    <string name="password_not_stored">A senha não será guardada no histórico.</string>
+    <string name="password_show">Mostrar senha</string>
+    <string name="password_hide">Ocultar senha</string>
+    <string name="note_title">Nota de texto</string>
+    <string name="note_label">Texto da anotação</string>
+    <string name="signature_title">Desenhe sua assinatura</string>
+    <string name="signature_body">Depois, arraste na página para escolher posição e tamanho. Não é assinatura digital com certificado.</string>
+    <string name="signature_pad">Área de assinatura</string>
+    <string name="signature_clear">Limpar assinatura</string>
+    <string name="signature_place">Posicionar</string>
+    <string name="discard_title">Há alterações não salvas</string>
+    <string name="discard_body">Salve antes de sair para manter suas alterações no PDF.</string>
+    <string name="discard_save_copy">Salvar cópia</string>
+    <string name="discard_keep">Continuar editando</string>
+    <string name="discard_confirm">Descartar e sair</string>
+    <string name="error_title">Não foi possível concluir</string>
+    <string name="error_locate">Localizar arquivo</string>
+    <string name="error_save_copy">Salvar cópia</string>
+    <string name="share_chooser">Compartilhar PDF</string>
+    <string name="share_unavailable">Nenhum aplicativo disponível para compartilhar.</string>
+    <string name="share_save_first">Salve as alterações antes de compartilhar o documento.</string>
+
+    <!-- Feedback -->
+    <string name="message_copied">Texto copiado</string>
+    <string name="message_saved">Alterações salvas</string>
+    <string name="message_copy_saved">Cópia salva</string>
+    <string name="message_backup_exported">Original anterior exportado</string>
+    <string name="message_no_selectable_text">Não há texto selecionável nesta região. PDFs digitalizados podem precisar de OCR.</string>
+
+    <!-- Errors -->
+    <string name="error_open_feature_unavailable">Este sistema Android não oferece os recursos nativos necessários para este PDF. A leitura básica continua disponível para arquivos sem senha.</string>
+    <string name="error_open_access_denied">O acesso ao PDF foi negado. Escolha o arquivo novamente pelo seletor do Android.</string>
+    <string name="error_open_unavailable">O PDF pode ter sido movido, removido ou estar indisponível no provedor. Abra o arquivo novamente.</string>
+    <string name="error_open_invalid">Não foi possível ler o PDF diretamente. O arquivo pode estar inválido ou o provedor não oferecer acesso compatível. Nenhuma cópia foi importada.</string>
+    <string name="error_render_page">Não foi possível renderizar esta página.</string>
+    <string name="error_search">Não foi possível pesquisar neste PDF.</string>
+    <string name="error_feature_page">Este recurso não está disponível para esta página ou neste sistema.</string>
+    <string name="error_edit">Não foi possível aplicar a alteração. O arquivo original não foi gravado.</string>
+    <string name="error_copy_same_file">Escolha outro arquivo em Salvar cópia. Para substituir o original, use Salvar alterações.</string>
+    <string name="error_copy_failed">Não foi possível salvar a cópia. Suas alterações continuam abertas no leitor.</string>
+    <string name="error_save_recovered">Não foi possível salvar no original. O original foi preservado/restaurado e suas alterações estão na recuperação. Use Salvar cópia.</string>
+    <string name="error_save_restore_failed">A gravação e a restauração falharam. Não use o original até revisar a recuperação; as versões editada e anterior foram preservadas no app.</string>
+    <string name="error_saved_reopen_failed">O arquivo foi salvo, mas o provedor não permitiu reabri-lo agora. Abra novamente pelo seletor.</string>
+    <string name="error_recovery_reopen_failed">Não foi possível reabrir a edição. Uma recuperação foi preservada e está disponível nos recentes.</string>
+    <string name="error_save_failed">Não foi possível concluir a gravação. %1$s</string>
+    <string name="error_save_reason_changed">O arquivo foi alterado fora do aplicativo. Salve uma cópia ou reabra o original.</string>
+    <string name="error_save_reason_space">Espaço insuficiente para salvar com recuperação.</string>
+    <string name="error_save_reason_pending">Revise a recuperação anterior antes de salvar no original novamente.</string>
+    <string name="error_save_reason_generic">O original não foi substituído; tente Salvar cópia.</string>
+    <string name="error_backup_export">Não foi possível exportar o backup de recuperação.</string>
+</resources>

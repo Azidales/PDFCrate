@@ -1,4 +1,4 @@
-package dev.pdfcrate.app
+package dev.pdfcrate.app.pdf
 
 import android.graphics.*
 import android.os.ParcelFileDescriptor
@@ -6,6 +6,7 @@ import android.system.Os
 import android.util.LruCache
 import android.util.SparseArray
 import android.util.SizeF
+import androidx.core.graphics.createBitmap
 import java.io.Closeable
 import java.io.File
 import java.io.IOException
@@ -15,7 +16,6 @@ import kotlin.math.roundToInt
 
 class PdfSession(private val descriptor: ParcelFileDescriptor, password: String? = null) : Closeable {
     constructor(file: File, password: String? = null) : this(ParcelFileDescriptor.open(file, ParcelFileDescriptor.MODE_READ_ONLY), password)
-    data class SourceStamp(val size: Long, val modified: Long, val inode: Long)
     val sourceStamp: SourceStamp?
     private val backend: PdfBackend
     private var closed = false
@@ -29,11 +29,11 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
 
     init {
         try {
-            sourceStamp = runCatching { Os.fstat(descriptor.fileDescriptor).let { SourceStamp(it.st_size, it.st_mtime, it.st_ino) } }.getOrNull()
+            sourceStamp = SourceStamp.of(descriptor)
             val header = ByteArray(1024)
             val read = Os.pread(descriptor.fileDescriptor, header, 0, header.size, 0)
             if (read <= 0 || !String(header, 0, read, Charsets.ISO_8859_1).contains("%PDF-"))
-                throw IOException("O arquivo não tem um cabeçalho PDF válido.")
+                throw IOException("Missing PDF header")
             backend = openPdfBackend(descriptor, password)
         } catch (failure: Throwable) { descriptor.close(); throw failure }
     }
@@ -52,8 +52,7 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
             require(page.width > 0 && page.height > 0)
             sizes.put(index, SizeF(page.width.toFloat(), page.height.toFloat()))
             val scale = 2200f / max(page.width, page.height)
-            val bitmap = Bitmap.createBitmap(max(1, (page.width * scale).roundToInt()),
-                max(1, (page.height * scale).roundToInt()), Bitmap.Config.ARGB_8888)
+            val bitmap = createBitmap(max(1, (page.width * scale).roundToInt()), max(1, (page.height * scale).roundToInt()))
             try {
                 bitmap.eraseColor(Color.WHITE)
                 page.draw(bitmap)
@@ -74,7 +73,7 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
     @Synchronized fun fields(index: Int): List<PdfField> = backend.page(index).use { it.fields() }
     @Synchronized fun setField(index: Int, change: FieldChange) {
         backend.page(index).use { page ->
-            require(page.fields().first { it.index == change.index }.readOnly.not()) { "Campo somente leitura." }
+            require(page.fields().first { it.index == change.index }.readOnly.not()) { "Read-only field" }
             page.edit(change)
         }
         formsChanged = true
@@ -84,7 +83,7 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
     @Synchronized fun addAnnotation(index: Int, raw: Any) {
         check(canAnnotate)
         val id = backend.page(index).use { it.add(raw) }
-        check(id >= 0) { "Não foi possível adicionar a anotação." }
+        check(id >= 0) { "Annotation was not added" }
         undo.add(AnnotationChange(index, id, null, raw)); redo.clear(); cache.evictAll()
     }
     @Synchronized fun removeAnnotation(index: Int, id: Int) {
@@ -98,9 +97,9 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
     @Synchronized fun editNote(index: Int, id: Int, text: String) {
         backend.page(index).use { page ->
             val before = page.annotations().first { it.id == id }
-            require(before.kind == "Texto")
+            require(before.kind == AnnotationKind.FREE_TEXT)
             val after = NativeAnnotations.changedText(before.raw, text)
-            check(page.update(id, after)) { "Não foi possível alterar a anotação." }
+            check(page.update(id, after)) { "Annotation was not updated" }
             undo.add(AnnotationChange(index, id, before.raw, after))
         }
         redo.clear(); cache.evictAll()
@@ -135,7 +134,7 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
                 from == null -> {
                     val previousId = change.id
                     val restoredId = page.add(to)
-                    check(restoredId >= 0) { "Não foi possível restaurar a anotação." }
+                    check(restoredId >= 0) { "Annotation was not restored" }
                     // Native IDs change after a deleted annotation is recreated. Every command
                     // for this annotation must follow the restored identity, including older edits.
                     (undo + redo).filter { it.page == change.page && it.id == previousId }

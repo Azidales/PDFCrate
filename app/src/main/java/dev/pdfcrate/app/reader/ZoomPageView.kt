@@ -1,6 +1,7 @@
-package dev.pdfcrate.app
+package dev.pdfcrate.app.reader
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -15,6 +16,7 @@ import android.view.ScaleGestureDetector
 import android.view.View
 import android.view.animation.DecelerateInterpolator
 import android.widget.OverScroller
+import androidx.core.graphics.withTranslation
 import kotlin.math.abs
 import kotlin.math.max
 import kotlin.math.min
@@ -49,6 +51,7 @@ class ZoomPageView(context: Context) : View(context) {
     private var cursor: PointF? = null
     private val stroke = mutableListOf<PointF>()
     private val overlay = Paint(Paint.ANTI_ALIAS_FLAG)
+    private val inkPreview = Path()
 
     fun showOverlays(width: Float, height: Float, hits: List<RectF>, selection: List<RectF>, mode: PdfTool) {
         if (pdfWidth != width || pdfHeight != height || matches != hits || selected != selection || toolMode != mode) {
@@ -184,8 +187,10 @@ class ZoomPageView(context: Context) : View(context) {
         super.onDraw(canvas)
         val bitmap = page ?: return
         val scale = fitScale(bitmap) * zoomFactor
-        canvas.save()
-        canvas.translate(width / 2f + offsetX, height / 2f + offsetY)
+        canvas.withTranslation(width / 2f + offsetX, height / 2f + offsetY) { drawPage(this, bitmap, scale) }
+    }
+
+    private fun drawPage(canvas: Canvas, bitmap: Bitmap, scale: Float) {
         canvas.scale(scale, scale)
         canvas.drawRect(-bitmap.width / 2f - 1, -bitmap.height / 2f - 1,
             bitmap.width / 2f + 1, bitmap.height / 2f + 1, paper)
@@ -204,13 +209,14 @@ class ZoomPageView(context: Context) : View(context) {
         }
         if (stroke.isNotEmpty()) {
             overlay.style = Paint.Style.STROKE; overlay.strokeWidth = 1.5f; overlay.color = android.graphics.Color.BLACK
-            val path = Path()
-            stroke.forEachIndexed { index, pt -> if (index == 0) path.moveTo(pt.x, pt.y) else path.lineTo(pt.x, pt.y) }
-            canvas.drawPath(path, overlay)
+            inkPreview.rewind()
+            stroke.forEachIndexed { index, pt -> if (index == 0) inkPreview.moveTo(pt.x, pt.y) else inkPreview.lineTo(pt.x, pt.y) }
+            canvas.drawPath(inkPreview, overlay)
         }
-        canvas.restore()
     }
 
+    // Single taps reach performClick() through the GestureDetector's onSingleTapConfirmed.
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(event: MotionEvent): Boolean {
         if (!isEnabled) return false
         if (toolMode != PdfTool.NONE) {
