@@ -46,6 +46,14 @@ class NativeUiTest {
             compose.saveScreenshot("page-text.png")
             compose.onNodeWithContentDescription("Fechar painel").performClick()
             compose.waitUntil(20_000) { compose.onAllNodesWithText("Copiar texto").fetchSemanticsNodes().isEmpty() }
+            compose.onNodeWithContentDescription("Editar e anotar").performClick()
+            compose.onNodeWithText("Formulário").performScrollTo().performClick()
+            compose.waitUntil(20_000) { compose.onAllNodesWithText("Formulários desta página").fetchSemanticsNodes().isNotEmpty() }
+            compose.onNodeWithText("Preencher").assertExists()
+            compose.onNodeWithContentDescription("Fechar painel").assertExists()
+            compose.saveScreenshot("forms.png")
+            compose.onNodeWithContentDescription("Fechar painel").performClick()
+            compose.waitUntil(20_000) { compose.onAllNodesWithText("Formulários desta página").fetchSemanticsNodes().isEmpty() }
             compose.onNodeWithContentDescription("Buscar texto").performClick()
             compose.onNodeWithTag("search-field").performTextInput("native")
             compose.onNodeWithTag("search-field").performImeAction()

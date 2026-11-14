@@ -6,6 +6,7 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -16,9 +17,16 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.BlendMode
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.CompositingStrategy
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -26,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
@@ -260,7 +269,8 @@ private fun EditPalette(model: ReaderModel, onSignature: () -> Unit, onDone: () 
     val enabled = !model.busy
     fun toggle(tool: PdfTool) = model.chooseTool(if (model.tool == tool) PdfTool.NONE else tool)
     Row(Modifier.fillMaxWidth().padding(vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(horizontal = 4.dp)) {
+        val scroll = rememberScrollState()
+        Row(Modifier.weight(1f).horizontalFadingEdge(scroll, 28.dp).horizontalScroll(scroll).padding(horizontal = 4.dp)) {
             ToolButton(R.drawable.ic_select, stringResource(R.string.tool_select), { toggle(PdfTool.SELECT) },
                 enabled = enabled, selected = model.tool == PdfTool.SELECT)
             if (model.annotationsAvailable) {
@@ -283,6 +293,19 @@ private fun EditPalette(model: ReaderModel, onSignature: () -> Unit, onDone: () 
         ToolButton(R.drawable.ic_check, stringResource(R.string.tool_done), onDone, Modifier.padding(horizontal = 4.dp))
     }
 }
+
+/** Fades the clipped side(s) of a horizontally scrolling row so hidden tools are discoverable. */
+private fun Modifier.horizontalFadingEdge(state: ScrollState, length: Dp): Modifier = this
+    .graphicsLayer { compositingStrategy = CompositingStrategy.Offscreen }
+    .drawWithContent {
+        drawContent()
+        val edge = length.toPx().coerceAtMost(size.width / 2)
+        if (state.value > 0) drawRect(Brush.horizontalGradient(listOf(Color.Transparent, Color.Black), 0f, edge),
+            size = Size(edge, size.height), blendMode = BlendMode.DstIn)
+        if (state.value < state.maxValue) drawRect(
+            Brush.horizontalGradient(listOf(Color.Black, Color.Transparent), size.width - edge, size.width),
+            topLeft = Offset(size.width - edge, 0f), size = Size(edge, size.height), blendMode = BlendMode.DstIn)
+    }
 
 @Composable
 private fun ToolHint(model: ReaderModel, modifier: Modifier) {

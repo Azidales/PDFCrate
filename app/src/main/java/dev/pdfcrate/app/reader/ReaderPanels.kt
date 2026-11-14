@@ -254,18 +254,18 @@ internal fun ReaderSheets(model: ReaderModel) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun PanelSheet(title: String, onDismiss: () -> Unit, actions: @Composable RowScope.() -> Unit = {},
+private fun PanelSheet(title: String, onDismiss: () -> Unit, actions: (@Composable RowScope.() -> Unit)? = null,
                        content: LazyListScope.() -> Unit) {
     val state = rememberModalBottomSheetState()
     val scope = rememberCoroutineScope()
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = state) {
         Row(Modifier.fillMaxWidth().padding(start = 24.dp, end = 8.dp), verticalAlignment = Alignment.CenterVertically) {
             Text(title, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-            actions()
             IconButton(onClick = { scope.launch { state.hide() }.invokeOnCompletion { onDismiss() } }) {
                 Glyph(R.drawable.ic_close, stringResource(R.string.panel_close))
             }
         }
+        if (actions != null) Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp), content = actions)
         LazyColumn(Modifier.fillMaxWidth(), contentPadding = PaddingValues(start = 8.dp, end = 8.dp, top = 4.dp, bottom = 24.dp),
             content = content)
     }

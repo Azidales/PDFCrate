@@ -47,7 +47,7 @@ fun ToolButton(@DrawableRes icon: Int, label: String, onClick: () -> Unit, modif
     }
     Surface(onClick = onClick, enabled = enabled, shape = MaterialTheme.shapes.medium,
         color = if (selected) colors.secondaryContainer else Color.Transparent, contentColor = content,
-        modifier = modifier.sizeIn(minWidth = 64.dp, minHeight = 56.dp)
+        modifier = modifier.sizeIn(minWidth = 60.dp, minHeight = 56.dp)
             .semantics { this.selected = selected; role = Role.Button }) {
         Column(Modifier.padding(horizontal = 8.dp, vertical = 6.dp), horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(3.dp)) {
