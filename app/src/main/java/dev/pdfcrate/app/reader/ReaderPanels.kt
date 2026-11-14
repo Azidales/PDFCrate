@@ -391,7 +391,8 @@ private fun FieldEditor(model: ReaderModel, field: PdfField, onClose: () -> Unit
                     }
                     Row(Modifier.fillMaxWidth().heightIn(min = 48.dp).clip(MaterialTheme.shapes.small)
                         .then(if (field.multiSelect) Modifier.toggleable(checked, role = Role.Checkbox, onValueChange = change)
-                            else Modifier.selectable(checked, role = Role.RadioButton, onClick = { change(true) }))
+                            // Tapping the chosen option again clears it, as in 0.4: some fields accept no value.
+                            else Modifier.selectable(checked, role = Role.RadioButton, onClick = { change(!checked) }))
                         .padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
                         if (field.multiSelect) Checkbox(checked, onCheckedChange = null) else RadioButton(checked, onClick = null)
                         Spacer(Modifier.width(12.dp))
