@@ -1,4 +1,4 @@
-# PDFCrate 0.4.0-alpha
+# PDFCrate 0.5.0-alpha
 
 Android 8.0 (API 26) ou superior. Interface em Kotlin/Compose e leitura com PdfRenderer do Android.
 
@@ -33,8 +33,8 @@ Alguns provedores só oferecem streams sem acesso aleatório e não funcionam co
 JDK 17, Gradle 8.13 e SDK Android 36 com extensão 19:
 
 ```sh
-gradle :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease
-gradle :app:connectedDebugAndroidTest
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease
+./gradlew :app:connectedDebugAndroidTest
 ```
 
 A CI verifica os fluxos de leitura em APIs 26, 33, 35 e 36/extensão 19, acesso ao provedor original, substituição/remoção do arquivo externo, cache, tempos de frame e uma atualização real de pacote por adb install -r. Relatórios detalhados acompanham cada execução. PDFBox é usado apenas nos testes para gerar documentos sintéticos e verificar a exportação de maneira independente; não integra o APK distribuído.

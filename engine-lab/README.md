@@ -21,14 +21,14 @@ Não validam seleção por coordenadas, aparência exata de anotações/formulá
 
 ## Executar
 
-Requisitos: JDK 17, Gradle 8.13, Android SDK 36, Build Tools 36.0.0 e emulador/aparelho API 26 ou superior. Configure `ANDROID_HOME` ou `local.properties` sem versionar caminhos locais.
+Requisitos: JDK 17, Android SDK 36, Build Tools 36.0.0 e emulador/aparelho API 26 ou superior. Configure `ANDROID_HOME` ou `local.properties` sem versionar caminhos locais.
 
 ```sh
-gradle :engine-lab:assembleDebug :engine-lab:assembleDebugAndroidTest :engine-lab:lintDebug
-gradle :engine-lab:connectedDebugAndroidTest
+./gradlew :engine-lab:assembleDebug :engine-lab:assembleDebugAndroidTest :engine-lab:lintDebug
+./gradlew :engine-lab:connectedDebugAndroidTest
 ```
 
-Ainda não há Gradle Wrapper. Use a versão indicada; a CI instala essa versão explicitamente. Adicionar o Wrapper oficial com checksum é pendência antes da base do aplicativo.
+O Gradle Wrapper do repositório fixa o Gradle 8.13 e verifica o checksum da distribuição.
 
 A workflow `Android engine lab` executa em API 26 e 36 e publica relatórios. Os APKs de teste são artefatos experimentais, sem interface de leitor.
 
