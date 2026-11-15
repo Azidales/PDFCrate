@@ -12,6 +12,7 @@ import java.io.File
 import java.io.IOException
 import java.util.concurrent.Executors
 import kotlin.math.max
+import kotlin.math.min
 import kotlin.math.roundToInt
 
 class PdfSession(private val descriptor: ParcelFileDescriptor, password: String? = null) : Closeable {
@@ -23,9 +24,10 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
     private val undo = mutableListOf<AnnotationChange>()
     private val redo = mutableListOf<AnnotationChange>()
     private var formsChanged = false
-    private val cache = object : LruCache<Int, Bitmap>(
+    /** Rendered pages keyed by page and requested width; bounded by bytes, never recycled (views may still draw them). */
+    private val cache = object : LruCache<Long, Bitmap>(
         (Runtime.getRuntime().maxMemory() / 8).coerceIn(8L * 1024 * 1024, 24L * 1024 * 1024).toInt()
-    ) { override fun sizeOf(key: Int, value: Bitmap) = value.allocationByteCount }
+    ) { override fun sizeOf(key: Long, value: Bitmap) = value.allocationByteCount }
 
     init {
         try {
@@ -44,25 +46,33 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
     @Synchronized fun canUndo() = undo.isNotEmpty()
     @Synchronized fun canRedo() = redo.isNotEmpty()
 
-    @Synchronized fun render(index: Int): Bitmap {
+    /**
+     * Renders a page. With [targetWidth] (pixels) the page is scaled to that width, as continuous
+     * scrolling needs; otherwise to [MAX_SIDE_PX] on its longest side. Neither exceeds [MAX_SIDE_PX].
+     */
+    @Synchronized fun render(index: Int, targetWidth: Int = 0): Bitmap {
         check(!closed)
         require(index in 0 until pageCount)
-        cache.get(index)?.let { return it }
+        require(targetWidth in 0 until (1 shl 20))
+        val key = (index.toLong() shl 20) or targetWidth.toLong()
+        cache.get(key)?.let { return it }
         backend.page(index).use { page ->
             require(page.width > 0 && page.height > 0)
             sizes.put(index, SizeF(page.width.toFloat(), page.height.toFloat()))
-            val scale = 2200f / max(page.width, page.height)
+            val limit = MAX_SIDE_PX / max(page.width, page.height)
+            val scale = if (targetWidth > 0) min(targetWidth.toFloat() / page.width, limit) else limit
             val bitmap = createBitmap(max(1, (page.width * scale).roundToInt()), max(1, (page.height * scale).roundToInt()))
             try {
                 bitmap.eraseColor(Color.WHITE)
                 page.draw(bitmap)
                 bitmap.prepareToDraw()
-                cache.put(index, bitmap)
+                cache.put(key, bitmap)
                 return bitmap
             } catch (failure: Throwable) { bitmap.recycle(); throw failure }
         }
     }
     @Synchronized fun dimensions(index: Int): SizeF {
+        check(!closed)
         sizes[index]?.let { return it }
         return backend.page(index).use { SizeF(it.width.toFloat(), it.height.toFloat()).also { size -> sizes.put(index, size) } }
     }
@@ -156,7 +166,9 @@ class PdfSession(private val descriptor: ParcelFileDescriptor, password: String?
     }
     fun closeAsync() { cleanup.execute { close() } }
     private data class AnnotationChange(val page: Int, var id: Int, val before: Any?, val after: Any?)
-    private companion object {
-        val cleanup = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "pdf-cleanup").apply { isDaemon = true } }
+    companion object {
+        /** Longest rendered side, in pixels, for any page bitmap. */
+        const val MAX_SIDE_PX = 2200f
+        private val cleanup = Executors.newSingleThreadExecutor { runnable -> Thread(runnable, "pdf-cleanup").apply { isDaemon = true } }
     }
 }

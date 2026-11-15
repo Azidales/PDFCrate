@@ -4,11 +4,11 @@ Leitor de PDF nativo para Android. Sem anúncios, IA, rastreadores ou conta obri
 
 ## Versão atual: 0.5.0-alpha
 
-Android 8.0 (API 26) ou superior. A 0.5 mantém as funções da 0.4 e profissionaliza interface, código e build. Veja o [CHANGELOG](CHANGELOG.md).
+Android 8.0 (API 26) ou superior. A 0.5 profissionaliza interface, código e build, e acrescenta a rolagem contínua. Veja o [CHANGELOG](CHANGELOG.md).
 
 - **Abrir:** PDFs lidos diretamente no provedor escolhido (seletor do Android, "Abrir com" ou compartilhamento), sem importar cópias.
 - **Biblioteca:** recentes com busca, retomada da última página, acesso temporário indicado e recuperação de gravação.
-- **Leitura:** zoom por pinça, toque duplo e botões, deslocamento com inércia, troca de página por gesto e salto direto de página.
+- **Leitura:** rolagem contínua (padrão) ou página única, alternável no menu e lembrada entre sessões; zoom por pinça, toque duplo e botões, deslocamento com inércia, troca de página por gesto (página única) e salto direto de página.
 - **Busca:** barra de busca dedicada, contador e navegação entre resultados.
 - **Editar e anotar:** paleta com seleção de texto, nota, desenho, assinatura desenhada, formulários, lista de anotações, desfazer e refazer.
 - **Salvar:** salvar no original com recuperação, ou salvar cópia.

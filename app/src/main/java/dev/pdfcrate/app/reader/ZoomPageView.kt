@@ -23,12 +23,12 @@ import kotlin.math.min
 import kotlin.math.roundToInt
 
 /** Drawing and animation stay on Android's Choreographer/VSync timeline. No fixed-FPS loop. */
-class ZoomPageView(context: Context) : View(context) {
+class ZoomPageView(context: Context) : View(context), PageViewport {
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG or Paint.FILTER_BITMAP_FLAG)
     private val paper = Paint().apply { color = android.graphics.Color.WHITE }
     private var page: Bitmap? = null
     private var shownIndex = Int.MIN_VALUE
-    var zoomFactor = 1f
+    override var zoomFactor = 1f
         private set
     private var offsetX = 0f
     private var offsetY = 0f
@@ -89,7 +89,7 @@ class ZoomPageView(context: Context) : View(context) {
                 onSelection?.let { callback -> val at = point(pdfPoint(event.x, event.y)); callback(at, at) }
             }
             override fun onDoubleTap(event: MotionEvent): Boolean {
-                if (zoomFactor > 1.2f) fit() else zoomBy(2.5f, event.x, event.y)
+                if (zoomFactor > 1.2f) fit() else zoomAround(2.5f, event.x, event.y)
                 return true
             }
             override fun onFling(first: MotionEvent?, last: MotionEvent, vx: Float, vy: Float): Boolean {
@@ -130,9 +130,11 @@ class ZoomPageView(context: Context) : View(context) {
         }
     }
 
-    fun fit() = animateZoom(1f, width / 2f, height / 2f)
+    override fun fit() = animateZoom(1f, width / 2f, height / 2f)
 
-    fun zoomBy(factor: Float, focusX: Float = width / 2f, focusY: Float = height / 2f) =
+    override fun zoomBy(factor: Float) = zoomAround(factor, width / 2f, height / 2f)
+
+    private fun zoomAround(factor: Float, focusX: Float, focusY: Float) =
         animateZoom((zoomFactor * factor).coerceIn(1f, 6f), focusX, focusY)
 
     private fun animateZoom(target: Float, focusX: Float, focusY: Float) {

@@ -21,6 +21,7 @@ import dev.pdfcrate.app.library.LibraryDocument
 import dev.pdfcrate.app.pdf.*
 import kotlinx.coroutines.*
 import java.io.IOException
+import kotlin.math.abs
 
 enum class PdfTool { NONE, SELECT, DRAW, NOTE, SIGNATURE, MOVE }
 enum class MarkupStyle { HIGHLIGHT, UNDERLINE, STRIKEOUT }
@@ -28,6 +29,7 @@ enum class MarkupStyle { HIGHLIGHT, UNDERLINE, STRIKEOUT }
 class ReaderModel(application: Application) : AndroidViewModel(application) {
     val library = DocumentLibrary(application)
     private val saves = PdfSaveTransaction(application)
+    private val preferences = ReaderPreferences(application)
     var documents by mutableStateOf(library.documents()); private set
     var current by mutableStateOf<LibraryDocument?>(null); private set
     var bitmap by mutableStateOf<Bitmap?>(null); private set
@@ -58,6 +60,14 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
     var searching by mutableStateOf(false); private set
     var recovery by mutableStateOf(saves.pending()); private set
     var signature by mutableStateOf<List<List<PointF>>?>(null); private set
+    /** Continuous vertical scrolling; otherwise one page at a time. */
+    var continuous by mutableStateOf(preferences.continuous); private set
+    /** Every page size in PDF points, for the continuous layout (estimated until measured). */
+    var pageSizes by mutableStateOf<List<SizeF>>(emptyList()); private set
+    /** Bitmaps for the pages the continuous view is showing. */
+    var pageImages by mutableStateOf<Map<Int, Bitmap>>(emptyMap()); private set
+    /** Latest navigation request for the continuous view. */
+    var scrollTarget by mutableStateOf<ScrollTarget?>(null); private set
     private var session: PdfSession? = null
     private var prefetch: Job? = null
     private var searchJob: Job? = null
@@ -66,7 +76,16 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
     private var pendingNavigation: (() -> Unit)? = null
     private var recoveryBacking = false
     private var movingAnnotation: Int? = null
+    private var sizesJob: Job? = null
+    private var imagesJob: Job? = null
+    private var positionJob: Job? = null
+    private var visiblePages = IntRange.EMPTY
+    private var imageWidth = 0
+    /** Width each page image was rendered for; [Int.MAX_VALUE] marks a full-resolution bitmap. */
+    private val imageWidths = mutableMapOf<Int, Int>()
+    private var scrollSerial = 0L
     val searchBounds: List<RectF> get() = hits.getOrNull(hitIndex)?.takeIf { it.page == current?.page }?.bounds.orEmpty()
+    val activeHit: PdfHit? get() = hits.getOrNull(hitIndex)
 
     private fun text(@StringRes id: Int, vararg args: Any): String = getApplication<Application>().getString(id, *args)
 
@@ -116,6 +135,7 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
                     val updated = document.copy(page = page, opened = System.currentTimeMillis(), pages = opened.pageCount)
                     Loaded(updated, opened.render(page), opened.dimensions(page))
                 }
+                flushPosition(); visiblePages = IntRange.EMPTY
                 session?.closeAsync(); session = candidate; candidate = null
                 current = result.document; count = session!!.pageCount; bitmap = result.bitmap; size = result.size
                 advanced = session!!.advanced; annotationsAvailable = session!!.canAnnotate
@@ -123,7 +143,8 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
                 recoveryBacking = false; dirty = false; canUndo = false; canRedo = false
                 resetTools(); hits = emptyList(); hitIndex = -1
                 library.update(result.document); documents = library.documents()
-                prepareNext(result.document.page + 1)
+                startContinuous(result.document.page, result.bitmap, result.size, scroll = true)
+                if (!continuous) prepareNext(result.document.page + 1)
             } catch (failure: Exception) {
                 candidate?.closeAsync()
                 if (failure is CancellationException) throw failure
@@ -146,6 +167,11 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
     fun page(index: Int) {
         val document = current ?: return
         val engine = session ?: return
+        if (continuous) {
+            if (busy || index !in 0 until count) return
+            showContinuous(index, null)
+            return
+        }
         if (busy || index !in 0 until count || index == document.page) return
         busy = true; prefetch?.cancel()
         viewModelScope.launch {
@@ -161,6 +187,126 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
             } finally { busy = false }
         }
     }
+    /** Continuous mode: makes [index] current and asks the view to show it (centred on [focus] when given). */
+    private fun showContinuous(index: Int, focus: RectF?) {
+        val document = current ?: return
+        if (index != document.page) {
+            current = document.copy(page = index)
+            resetTools(); positionJob?.cancel(); library.update(current!!)
+        }
+        scrollTarget = ScrollTarget(index, focus, ++scrollSerial)
+    }
+
+    /** Called while the reader scrolls: the page in view becomes current without re-rendering. */
+    fun focusPage(index: Int) {
+        val document = current ?: return
+        if (!continuous || index == document.page || index !in 0 until count) return
+        current = document.copy(page = index)
+        // Selections belong to a page; an active tool (drawing, signature) continues on the new page.
+        if (tool == PdfTool.NONE) resetTools() else selection = PdfSelection()
+        persistPositionSoon()
+    }
+
+    private fun persistPositionSoon() {
+        positionJob?.cancel()
+        positionJob = viewModelScope.launch {
+            delay(POSITION_SAVE_DELAY_MS)
+            current?.let(library::update)
+        }
+    }
+
+    private fun flushPosition() {
+        if (positionJob?.isActive == true) { positionJob?.cancel(); current?.let(library::update) }
+        positionJob = null
+    }
+
+    fun useContinuousScroll(value: Boolean) {
+        if (value == continuous || busy) return
+        continuous = value
+        preferences.continuous = value
+        val document = current ?: return
+        val engine = session ?: return
+        resetTools()
+        if (value) {
+            prefetch?.cancel()
+            startContinuous(document.page, bitmap, size, scroll = true)
+        } else {
+            stopContinuous()
+            busy = true
+            viewModelScope.launch {
+                try {
+                    val rendered = withContext(Dispatchers.IO) { engine.render(document.page) to engine.dimensions(document.page) }
+                    bitmap = rendered.first; size = rendered.second
+                    prepareNext(document.page + 1)
+                } catch (failure: Exception) {
+                    if (failure is CancellationException) throw failure
+                    error = text(R.string.error_render_page)
+                } finally { busy = false }
+            }
+        }
+    }
+
+    /** Seeds the continuous view for the current session: the page already rendered and estimated sizes. */
+    private fun startContinuous(page: Int, rendered: Bitmap?, renderedSize: SizeF, scroll: Boolean, refresh: Boolean = false) {
+        val previous = pageImages
+        val sizes = pageSizes
+        stopContinuous()
+        if (!continuous) return
+        val engine = session ?: return
+        // After saving, the same document reopens: earlier bitmaps stay on screen until re-rendered.
+        if (refresh) { pageImages = previous; pageSizes = sizes }
+        if (rendered != null) { pageImages = pageImages + (page to rendered); imageWidths[page] = Int.MAX_VALUE }
+        if (!refresh || pageSizes.size != engine.pageCount) pageSizes = List(engine.pageCount) { renderedSize }
+        sizesJob = viewModelScope.launch {
+            val measured = try {
+                withContext(Dispatchers.IO) { List(engine.pageCount) { ensureActive(); engine.dimensions(it) } }
+            } catch (failure: Exception) {
+                if (failure is CancellationException) throw failure
+                return@launch // The session closed; its replacement measures again.
+            }
+            if (session === engine) pageSizes = measured
+        }
+        if (scroll) scrollTarget = ScrollTarget(page, null, ++scrollSerial)
+        renderVisible(force = refresh)
+    }
+
+    private fun stopContinuous() {
+        sizesJob?.cancel(); imagesJob?.cancel()
+        pageImages = emptyMap(); imageWidths.clear(); pageSizes = emptyList()
+    }
+
+    /** The continuous view reports the pages it needs and the bitmap width for its zoom. */
+    fun requestPages(range: IntRange, width: Int) {
+        visiblePages = range; imageWidth = width
+        renderVisible(force = false)
+    }
+
+    /** Renders missing or outdated bitmaps for the visible pages, nearest to the current page first. */
+    private fun renderVisible(force: Boolean) {
+        val engine = session ?: return
+        val range = visiblePages
+        val width = imageWidth
+        if (!continuous || width <= 0 || range.isEmpty()) return
+        imagesJob?.cancel()
+        pageImages = pageImages.filterKeys { it in range }
+        imageWidths.keys.retainAll(range.toSet())
+        val stale = if (force) range.toMutableSet() else mutableSetOf()
+        val focus = current?.page ?: range.first
+        imagesJob = viewModelScope.launch {
+            for (index in range.sortedBy { abs(it - focus) }) {
+                if (index !in stale && pageImages[index] != null && (imageWidths[index] ?: 0) >= width) continue
+                val rendered = try { withContext(Dispatchers.IO) { engine.render(index, width) } }
+                    catch (failure: Exception) {
+                        if (failure is CancellationException) throw failure
+                        return@launch
+                    }
+                if (session !== engine) return@launch
+                pageImages = pageImages + (index to rendered)
+                imageWidths[index] = width
+            }
+        }
+    }
+
     private fun prepareNext(index: Int) {
         val engine = session ?: return
         if (index !in 0 until count) return
@@ -168,6 +314,7 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
     }
     fun home() = navigate(::closeDocument)
     private fun closeDocument() {
+        flushPosition(); stopContinuous(); scrollTarget = null; visiblePages = IntRange.EMPTY
         prefetch?.cancel(); searchJob?.cancel(); session?.closeAsync(); session = null
         current = null; count = 0; bitmap = null; unlockedPassword = null
         advanced = false; annotationsAvailable = false; dirty = false; recoveryBacking = false
@@ -199,7 +346,7 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
                     }.take(MAX_SEARCH_HITS)
                 }
                 if (session === engine) { hits = results; hitIndex = if (results.isEmpty()) -1 else 0
-                    results.firstOrNull()?.let { page(it.page) } }
+                    results.firstOrNull()?.let(::reveal) }
             } catch (failure: Exception) {
                 if (failure is CancellationException) throw failure
                 error = text(R.string.error_search)
@@ -210,7 +357,10 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
     fun moveHit(direction: Int) {
         if (hits.isEmpty() || busy) return
         hitIndex = (hitIndex + direction + hits.size) % hits.size
-        page(hits[hitIndex].page)
+        reveal(hits[hitIndex])
+    }
+    private fun reveal(hit: PdfHit) {
+        if (continuous) showContinuous(hit.page, RectF().also { box -> hit.bounds.forEach(box::union) }) else page(hit.page)
     }
     fun select(from: Point, to: Point) = inspect { engine, index ->
         val result = engine.select(index, from, to)
@@ -273,21 +423,27 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
         val index = current?.page ?: return
         if (busy) return
         val hadFields = fields != null; val hadAnnotations = annotations != null
-        busy = true; prefetch?.cancel(); searchJob?.cancel()
+        val single = !continuous
+        busy = true; prefetch?.cancel(); searchJob?.cancel(); imagesJob?.cancel()
         viewModelScope.launch {
             try {
                 val result = withContext(Dispatchers.IO) {
                     block(engine, index)
-                    Triple(engine.render(index), if (hadFields) engine.fields(index) else null,
+                    Triple(if (single) engine.render(index) else null, if (hadFields) engine.fields(index) else null,
                         if (hadAnnotations) engine.annotations(index) else null)
                 }
-                bitmap = result.first; fields = result.second; annotations = result.third
+                result.first?.let { bitmap = it }
+                fields = result.second; annotations = result.third
                 dirty = recoveryBacking || engine.hasChanges(); canUndo = engine.canUndo(); canRedo = engine.canRedo()
                 selection = PdfSelection(); tool = PdfTool.NONE; signature = null; hits = emptyList(); hitIndex = -1
             } catch (failure: Exception) {
                 if (failure is CancellationException) throw failure
                 error = text(R.string.error_edit)
-            } finally { busy = false }
+            } finally {
+                busy = false
+                // Undo and redo may touch any page, so every visible page is redrawn.
+                if (!single) renderVisible(force = true)
+            }
         }
     }
 
@@ -322,7 +478,7 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
         val document = current ?: return
         val engine = session ?: return
         if (busy || !dirty) return
-        busy = true; prefetch?.cancel(); searchJob?.cancel()
+        busy = true; prefetch?.cancel(); searchJob?.cancel(); imagesJob?.cancel(); sizesJob?.cancel()
         viewModelScope.launch {
             var originalWasSaved = false
             try {
@@ -338,6 +494,7 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
                 }
                 session = reopened.first; bitmap = reopened.second; size = reopened.third
                 count = reopened.first.pageCount; recoveryBacking = result.recovery != null
+                startContinuous(document.page, reopened.second, reopened.third, scroll = false, refresh = true)
                 dirty = recoveryBacking; canUndo = false; canRedo = false; resetTools()
                 when {
                     result.recovery == null -> message = text(R.string.message_saved)
@@ -389,10 +546,14 @@ class ReaderModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
-    override fun onCleared() { prefetch?.cancel(); searchJob?.cancel(); session?.closeAsync(); unlockedPassword = null }
+    override fun onCleared() {
+        flushPosition(); prefetch?.cancel(); searchJob?.cancel(); sizesJob?.cancel(); imagesJob?.cancel()
+        session?.closeAsync(); unlockedPassword = null
+    }
 
     companion object {
         const val MAX_SEARCH_HITS = 5000
+        private const val POSITION_SAVE_DELAY_MS = 400L
         /** Yellow (default), green and pink. */
         val HIGHLIGHT_COLORS = intArrayOf(0xFFFFD54F.toInt(), 0xFF81C784.toInt(), 0xFFF48FB1.toInt())
     }

@@ -18,7 +18,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.util.Collections
-import dev.pdfcrate.app.reader.ZoomPageView
+import dev.pdfcrate.app.reader.PageViewport
 
 @RunWith(AndroidJUnit4::class)
 class ReaderFrameTest {
@@ -32,10 +32,10 @@ class ReaderFrameTest {
         compose.waitUntil(20_000) { compose.onAllNodesWithText("1 / 3").fetchSemanticsNodes().isNotEmpty() }
         val activity = compose.activity
         val instrumentation = InstrumentationRegistry.getInstrumentation()
-        lateinit var reader: ZoomPageView
+        lateinit var reader: PageViewport
         instrumentation.runOnMainSync {
             reader = findReader(activity.window.decorView)!!
-            assertTrue(reader.isHardwareAccelerated)
+            assertTrue((reader as View).isHardwareAccelerated)
         }
         val durations = Collections.synchronizedList(mutableListOf<Long>())
         val thread = HandlerThread("frame-test").apply { start() }
@@ -72,8 +72,8 @@ class ReaderFrameTest {
         compose.onNodeWithText("Remover dos recentes").performClick()
     }
 
-    private fun findReader(view: View): ZoomPageView? {
-        if (view is ZoomPageView) return view
+    private fun findReader(view: View): PageViewport? {
+        if (view is PageViewport) return view
         if (view is ViewGroup) for (index in 0 until view.childCount) {
             findReader(view.getChildAt(index))?.let { return it }
         }

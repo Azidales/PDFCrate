@@ -31,6 +31,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,7 +62,15 @@ fun ReaderScreen(model: ReaderModel, document: LibraryDocument, snackbar: Snackb
     val stopEditing = { editing = false; model.chooseTool(PdfTool.NONE) }
 
     val pageView = remember(context, document.id) { ZoomPageView(context) }
-    DisposableEffect(pageView) { onDispose { pageView.show(null); pageView.onTap = null; pageView.onPageSwipe = null } }
+    val scrollView = remember(context, document.id) { ContinuousPageView(context) }
+    val viewport: PageViewport = if (model.continuous) scrollView else pageView
+    LaunchedEffect(model.continuous) { if (!model.continuous) scrollView.setImages(emptyMap()) }
+    DisposableEffect(pageView, scrollView) {
+        onDispose {
+            pageView.show(null); pageView.onTap = null; pageView.onPageSwipe = null
+            scrollView.setImages(emptyMap()); scrollView.onTap = null; scrollView.onPageChanged = null; scrollView.onRequestPages = null
+        }
+    }
     // Back dismisses the innermost transient state before leaving the document.
     BackHandler {
         when {
@@ -80,19 +90,39 @@ fun ReaderScreen(model: ReaderModel, document: LibraryDocument, snackbar: Snackb
                 else ReaderTopBar(model, document, editing,
                     onSearch = { stopEditing(); searchOpen = true },
                     onToggleEdit = { if (editing) stopEditing() else editing = true },
-                    onSaveCopy = onSaveCopy, onShare = { shareDocument(context, model, document) })
+                    onSaveCopy = onSaveCopy, onShare = { shareDocument(context, model, document) },
+                    onToggleContinuous = { model.useContinuousScroll(!model.continuous) })
             }
         },
         bottomBar = {
             AnimatedVisibility(showChrome, enter = fadeIn(), exit = fadeOut()) {
-                ReaderBottomBar(model, document, pageView, editing, onGoToPage = { goToPage = true },
+                ReaderBottomBar(model, document, viewport, editing, onGoToPage = { goToPage = true },
                     onSignature = { showSignature = true }, onDone = stopEditing)
             }
         }
     ) { padding ->
         val pageDescription = stringResource(R.string.reader_page_description, document.page + 1, model.count)
         Box(Modifier.fillMaxSize().padding(padding)) {
-            AndroidView(factory = { pageView }, modifier = Modifier.fillMaxSize(), update = {
+            // Each mode has its own call site, so switching recreates the AndroidView with the other view.
+            if (model.continuous) AndroidView(
+                factory = { scrollView.apply { startAt(document.page, model.scrollTarget?.id ?: Long.MIN_VALUE) } },
+                modifier = Modifier.fillMaxSize().testTag("page-view"), update = {
+                    it.setPages(model.pageSizes)
+                    it.setImages(model.pageImages)
+                    it.scrollTo(model.scrollTarget)
+                    it.isEnabled = !model.busy
+                    val hit = model.activeHit
+                    it.showOverlays(hit?.page ?: -1, hit?.bounds.orEmpty(), document.page, model.selection.bounds, model.tool,
+                        if (model.tool == PdfTool.MOVE) document.page else -1)
+                    it.onTap = { chrome = !chrome }
+                    it.onPageChanged = model::focusPage
+                    it.onRequestPages = model::requestPages
+                    it.onSelection = if (model.advanced) { page, from, to -> model.focusPage(page); model.select(from, to) } else null
+                    it.onArea = if (model.annotationsAvailable) { page, area -> model.focusPage(page); model.receiveArea(area) } else null
+                    it.onInk = if (model.annotationsAvailable) { page, strokes, box -> model.focusPage(page); model.addInk(strokes, box) } else null
+                    it.contentDescription = pageDescription
+                })
+            else AndroidView(factory = { pageView }, modifier = Modifier.fillMaxSize().testTag("page-view"), update = {
                 it.show(model.bitmap, document.page)
                 it.isEnabled = !model.busy
                 it.showOverlays(model.size.width, model.size.height, model.searchBounds, model.selection.bounds, model.tool)
@@ -119,7 +149,7 @@ fun ReaderScreen(model: ReaderModel, document: LibraryDocument, snackbar: Snackb
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ReaderTopBar(model: ReaderModel, document: LibraryDocument, editing: Boolean, onSearch: () -> Unit,
-                         onToggleEdit: () -> Unit, onSaveCopy: () -> Unit, onShare: () -> Unit) {
+                         onToggleEdit: () -> Unit, onSaveCopy: () -> Unit, onShare: () -> Unit, onToggleContinuous: () -> Unit) {
     TopAppBar(
         title = {
             Column {
@@ -146,19 +176,26 @@ private fun ReaderTopBar(model: ReaderModel, document: LibraryDocument, editing:
             if (model.dirty) IconButton(onClick = model::saveOriginal, enabled = !model.busy) {
                 Glyph(R.drawable.ic_save, stringResource(R.string.reader_save), tint = MaterialTheme.colorScheme.primary)
             }
-            ReaderMenu(model, onSaveCopy, onShare)
+            ReaderMenu(model, onSaveCopy, onShare, onToggleContinuous)
         },
         colors = TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.surface)
     )
 }
 
 @Composable
-private fun ReaderMenu(model: ReaderModel, onSaveCopy: () -> Unit, onShare: () -> Unit) {
+private fun ReaderMenu(model: ReaderModel, onSaveCopy: () -> Unit, onShare: () -> Unit, onToggleContinuous: () -> Unit) {
     var expanded by remember { mutableStateOf(false) }
     Box {
         IconButton(onClick = { expanded = true }, enabled = !model.busy) { Glyph(R.drawable.ic_more, stringResource(R.string.action_more)) }
         DropdownMenu(expanded, onDismissRequest = { expanded = false }) {
             fun run(action: () -> Unit) { expanded = false; action() }
+            val modeState = stringResource(if (model.continuous) R.string.setting_on else R.string.setting_off)
+            DropdownMenuItem(text = { Text(stringResource(R.string.reader_continuous)) },
+                leadingIcon = { Glyph(R.drawable.ic_continuous, null) },
+                trailingIcon = { if (model.continuous) Glyph(R.drawable.ic_check, null, tint = MaterialTheme.colorScheme.primary) },
+                modifier = Modifier.semantics { stateDescription = modeState },
+                onClick = { run(onToggleContinuous) })
+            HorizontalDivider()
             DropdownMenuItem(text = { Text(stringResource(R.string.reader_page_text)) }, enabled = model.advanced,
                 leadingIcon = { Glyph(R.drawable.ic_article, null) }, onClick = { run(model::showText) })
             DropdownMenuItem(text = { Text(stringResource(R.string.reader_share)) },
@@ -230,7 +267,7 @@ private fun SearchBar(model: ReaderModel, onClose: () -> Unit) {
 }
 
 @Composable
-private fun ReaderBottomBar(model: ReaderModel, document: LibraryDocument, pageView: ZoomPageView, editing: Boolean,
+private fun ReaderBottomBar(model: ReaderModel, document: LibraryDocument, pageView: PageViewport, editing: Boolean,
                             onGoToPage: () -> Unit, onSignature: () -> Unit, onDone: () -> Unit) {
     Surface(Modifier.navigationBarsPadding().padding(horizontal = 12.dp, vertical = 8.dp),
         shape = MaterialTheme.shapes.large, tonalElevation = 2.dp, shadowElevation = 2.dp) {

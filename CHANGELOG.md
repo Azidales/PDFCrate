@@ -2,7 +2,13 @@
 
 ## 0.5.0-alpha
 
-Profissionalização. As funções são as mesmas da 0.4.0-alpha; mudam a apresentação, a organização do código e o build.
+Profissionalização da 0.4.0-alpha e rolagem contínua.
+
+### Novo
+
+- Rolagem contínua: páginas empilhadas na largura da tela, com inércia, zoom de 1x a 6x sobre o documento inteiro e indicador de página acompanhando a leitura. É o modo padrão; "Rolagem contínua" no menu do leitor alterna para página única, e a escolha fica gravada no aparelho.
+- No modo contínuo, setas, salto de página e resultados de busca levam à página (ou ao trecho encontrado); seleção, notas, desenho e assinatura atuam na página tocada.
+- Os bitmaps são pedidos só para as páginas visíveis (e uma de cada lado em zoom normal), na largura da tela; acima de 1,5x são refeitos com o dobro da resolução, sem passar de 2.200 px no maior lado.
 
 ### Interface
 

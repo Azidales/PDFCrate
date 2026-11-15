@@ -79,6 +79,9 @@
     <string name="reader_save">Salvar alterações</string>
     <string name="reader_save_copy">Salvar cópia…</string>
     <string name="reader_share">Compartilhar</string>
+    <string name="reader_continuous">Rolagem contínua</string>
+    <string name="setting_on">Ativada</string>
+    <string name="setting_off">Desativada</string>
     <string name="reader_page_text">Texto desta página</string>
     <string name="reader_forms">Formulários desta página</string>
     <string name="reader_annotations">Anotações desta página</string>

@@ -6,7 +6,7 @@ Android 8.0 (API 26) ou superior. Interface em Kotlin/Compose e leitura com PdfR
 
 - Abertura direta pelo seletor ou por outro aplicativo, sem importar cópias.
 - Recentes por URI, busca pelo nome e retomada da última página.
-- Navegação, salto de página, zoom por pinça/toque duplo/botões e arraste com inércia.
+- Rolagem contínua (padrão) ou página única, navegação, salto de página, zoom por pinça/toque duplo/botões e arraste com inércia.
 - Toque simples para ocultar ou mostrar os controles.
 - Compartilhamento do documento escolhido, com concessão temporária de leitura.
 - Mensagem de acesso temporário e recuperação de arquivo indisponível.
@@ -24,7 +24,7 @@ A transição das antigas builds com chave debug aleatória exige uma última de
 
 ## Limitações
 
-Recursos de senha, texto, edição e formulários dependem das APIs nativas presentes no dispositivo; veja docs/NATIVOS_COMPATIBILIDADE.md. Ainda não inclui OCR, impressão, rolagem contínua, miniaturas de páginas, sumário ou assinatura digital com certificado. Zoom limitado a 6x com imagem de até 2.200 pixels no lado maior.
+Recursos de senha, texto, edição e formulários dependem das APIs nativas presentes no dispositivo; veja docs/NATIVOS_COMPATIBILIDADE.md. Ainda não inclui OCR, impressão, miniaturas de páginas, sumário ou assinatura digital com certificado. Zoom limitado a 6x com imagem de até 2.200 pixels no lado maior.
 
 Alguns provedores só oferecem streams sem acesso aleatório e não funcionam com leitura direta por PdfRenderer. O app informa a limitação; não importa o arquivo silenciosamente.
 
