@@ -32,8 +32,6 @@ jobs:
           packages: 'platform-tools'
           log-accepted-android-sdk-licenses: false
       - uses: gradle/actions/setup-gradle@v4
-        with:
-          gradle-version: '8.13'
       - name: Install compile SDK
         run: sdkmanager 'platforms;android-36' 'build-tools;36.0.0'
       - name: Enable KVM
@@ -42,14 +40,14 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
       - name: Compile and lint
-        run: gradle --no-daemon :engine-lab:assembleDebug :engine-lab:assembleDebugAndroidTest :engine-lab:lintDebug
+        run: ./gradlew --no-daemon :engine-lab:assembleDebug :engine-lab:assembleDebugAndroidTest :engine-lab:lintDebug
       - name: Run on Android
         uses: reactivecircus/android-emulator-runner@v2
         with:
           api-level: ${{ matrix.api }}
           arch: x86_64
           disable-animations: true
-          script: gradle --no-daemon :engine-lab:connectedDebugAndroidTest
+          script: ./gradlew --no-daemon :engine-lab:connectedDebugAndroidTest
       - name: Upload test reports and experimental APKs
         if: always()
         uses: actions/upload-artifact@v4

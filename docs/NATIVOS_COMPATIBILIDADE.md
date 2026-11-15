@@ -1,4 +1,4 @@
-# Recursos nativos e compatibilidade — 0.4.0
+# Recursos nativos e compatibilidade — desde 0.4.0
 
 A decisão do projeto é usar APIs públicas do Android, sem incorporar MuPDF/AGPL nem outro motor de PDF ao aplicativo. O Android 13 do S20 FE é um alvo de leitura e recentes. A versão do Android, sozinha, não garante recursos avançados.
 

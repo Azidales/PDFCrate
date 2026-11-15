@@ -16,6 +16,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.ByteArrayOutputStream
 import java.io.File
+import android.view.View
+import android.view.ViewGroup
+import dev.pdfcrate.app.library.DocumentLibrary
+import dev.pdfcrate.app.reader.ContinuousPageView
+import dev.pdfcrate.app.reader.ReaderPreferences
+import dev.pdfcrate.app.reader.ZoomPageView
+import dev.pdfcrate.app.pdf.PdfSession
 
 @RunWith(AndroidJUnit4::class)
 class ReaderSmokeTest {
@@ -34,12 +41,12 @@ class ReaderSmokeTest {
         compose.onNodeWithText("Ir", useUnmergedTree = true).performClick()
         awaitPage("3 / 3")
         compose.onNodeWithContentDescription("Próxima").assertIsNotEnabled()
-        saveScreenshot("reader.png")
+        compose.saveScreenshot("reader.png")
         compose.activityRule.scenario.recreate()
         compose.onNodeWithText("3 / 3").assertExists()
         compose.onNodeWithContentDescription("Voltar").performClick()
         compose.onNodeWithText("Página 3 de 3").assertExists()
-        saveScreenshot("recents.png")
+        compose.saveScreenshot("recents.png")
         compose.onNodeWithText("Exemplo PDFCrate.pdf").performClick()
         awaitPage("3 / 3")
         compose.onNodeWithContentDescription("Voltar").performClick()
@@ -117,30 +124,69 @@ class ReaderSmokeTest {
         }
     }
 
+    @Test fun continuousScrollFollowsPagesAndSwitchesToSinglePage() {
+        val context = InstrumentationRegistry.getInstrumentation().targetContext
+        val instrumentation = InstrumentationRegistry.getInstrumentation()
+        try {
+            compose.onNodeWithContentDescription("Sobre o PDFCrate").performClick()
+            compose.onNode(hasText("Experimentar exemplo") and hasAnyAncestor(isDialog())).performClick()
+            awaitPage("1 / 3")
+            instrumentation.runOnMainSync { assertTrue(findPageView(compose.activity.window.decorView) is ContinuousPageView) }
+            // Real drag gestures move through the document; the indicator follows the page in view.
+            repeat(6) {
+                if (compose.onAllNodesWithText("1 / 3").fetchSemanticsNodes().isEmpty()) return@repeat
+                compose.onNodeWithTag("page-view").performTouchInput {
+                    swipeUp(startY = bottom * .85f, endY = top + height * .15f, durationMillis = 400)
+                }
+                compose.waitForIdle()
+            }
+            compose.waitUntil(5_000) {
+                compose.onAllNodesWithText("2 / 3").fetchSemanticsNodes().isNotEmpty() ||
+                    compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty()
+            }
+            compose.saveScreenshot("continuous.png")
+            val reached = if (compose.onAllNodesWithText("3 / 3").fetchSemanticsNodes().isNotEmpty()) 3 else 2
+
+            compose.onNodeWithContentDescription("Mais opções").performClick()
+            compose.onNodeWithText("Rolagem contínua").performClick()
+            awaitPage("$reached / 3")
+            instrumentation.runOnMainSync { assertTrue(findPageView(compose.activity.window.decorView) is ZoomPageView) }
+            assertFalse(ReaderPreferences(context).continuous)
+            compose.onNodeWithContentDescription("Anterior").performClick()
+            awaitPage("${reached - 1} / 3")
+
+            compose.onNodeWithContentDescription("Mais opções").performClick()
+            compose.onNodeWithText("Rolagem contínua").performClick()
+            awaitPage("${reached - 1} / 3")
+            instrumentation.runOnMainSync { assertTrue(findPageView(compose.activity.window.decorView) is ContinuousPageView) }
+            assertTrue(ReaderPreferences(context).continuous)
+            // Buttons and page jumps keep working while scrolling continuously.
+            compose.onNodeWithContentDescription("Próxima").performClick()
+            awaitPage("$reached / 3")
+            compose.onNodeWithContentDescription("Voltar").performClick()
+            compose.onNodeWithText("Página $reached de 3").assertExists()
+            forget("Exemplo PDFCrate.pdf")
+        } finally { ReaderPreferences(context).continuous = true }
+    }
+
+    private fun findPageView(view: View): View? {
+        if (view is ContinuousPageView || view is ZoomPageView) return view
+        if (view is ViewGroup) for (index in 0 until view.childCount) findPageView(view.getChildAt(index))?.let { return it }
+        return null
+    }
+
     private fun awaitPage(text: String) {
         try {
             compose.waitUntil(20_000) { compose.onAllNodesWithText(text).fetchSemanticsNodes().isNotEmpty() }
         } catch (failure: Throwable) {
             compose.onRoot(useUnmergedTree = true).printToLog("PDFCrateUITest")
-            saveScreenshot("failure.png")
+            compose.saveScreenshot("failure.png")
             throw failure
         }
     }
     private fun forget(name: String) {
         compose.onNodeWithContentDescription("Opções de $name").performClick()
         compose.onNodeWithText("Remover dos recentes").performClick()
-    }
-    private fun saveScreenshot(name: String) {
-        compose.waitForIdle()
-        android.os.SystemClock.sleep(350)
-        val instrumentation = InstrumentationRegistry.getInstrumentation()
-        val bitmap = instrumentation.uiAutomation.takeScreenshot() ?: return
-        try {
-            instrumentation.targetContext.externalMediaDirs
-            val directory = File(InstrumentationRegistry.getArguments().getString("additionalTestOutputDir")
-                ?: File(instrumentation.targetContext.getExternalFilesDir(null), "screenshots").absolutePath).apply { mkdirs() }
-            File(directory, name).outputStream().use { bitmap.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
-        } finally { bitmap.recycle() }
     }
 }
 

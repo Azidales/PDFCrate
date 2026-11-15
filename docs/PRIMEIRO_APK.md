@@ -1,4 +1,4 @@
-# PDFCrate 0.4.0-alpha
+# PDFCrate 0.5.0-alpha
 
 Android 8.0 (API 26) ou superior. Interface em Kotlin/Compose e leitura com PdfRenderer do Android.
 
@@ -6,7 +6,7 @@ Android 8.0 (API 26) ou superior. Interface em Kotlin/Compose e leitura com PdfR
 
 - Abertura direta pelo seletor ou por outro aplicativo, sem importar cópias.
 - Recentes por URI, busca pelo nome e retomada da última página.
-- Navegação, salto de página, zoom por pinça/toque duplo/botões e arraste com inércia.
+- Rolagem contínua (padrão) ou página única, navegação, salto de página, zoom por pinça/toque duplo/botões e arraste com inércia.
 - Toque simples para ocultar ou mostrar os controles.
 - Compartilhamento do documento escolhido, com concessão temporária de leitura.
 - Mensagem de acesso temporário e recuperação de arquivo indisponível.
@@ -24,7 +24,7 @@ A transição das antigas builds com chave debug aleatória exige uma última de
 
 ## Limitações
 
-Recursos de senha, texto, edição e formulários dependem das APIs nativas presentes no dispositivo; veja docs/NATIVOS_COMPATIBILIDADE.md. Ainda não inclui OCR, impressão, rolagem contínua, miniaturas de páginas, sumário ou assinatura digital com certificado. Zoom limitado a 6x com imagem de até 2.200 pixels no lado maior.
+Recursos de senha, texto, edição e formulários dependem das APIs nativas presentes no dispositivo; veja docs/NATIVOS_COMPATIBILIDADE.md. Ainda não inclui OCR, impressão, miniaturas de páginas, sumário ou assinatura digital com certificado. Zoom limitado a 6x com imagem de até 2.200 pixels no lado maior.
 
 Alguns provedores só oferecem streams sem acesso aleatório e não funcionam com leitura direta por PdfRenderer. O app informa a limitação; não importa o arquivo silenciosamente.
 
@@ -33,8 +33,8 @@ Alguns provedores só oferecem streams sem acesso aleatório e não funcionam co
 JDK 17, Gradle 8.13 e SDK Android 36 com extensão 19:
 
 ```sh
-gradle :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease
-gradle :app:connectedDebugAndroidTest
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease
+./gradlew :app:connectedDebugAndroidTest
 ```
 
 A CI verifica os fluxos de leitura em APIs 26, 33, 35 e 36/extensão 19, acesso ao provedor original, substituição/remoção do arquivo externo, cache, tempos de frame e uma atualização real de pacote por adb install -r. Relatórios detalhados acompanham cada execução. PDFBox é usado apenas nos testes para gerar documentos sintéticos e verificar a exportação de maneira independente; não integra o APK distribuído.

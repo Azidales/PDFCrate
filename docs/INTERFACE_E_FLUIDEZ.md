@@ -19,7 +19,15 @@ O zoom transforma um bitmap existente em canvas acelerado. Não rasteriza o PDF 
 
 O cache LRU é limitado por bytes: entre 8 e 24 MiB, conforme o heap. A próxima página na direção de leitura é preparada após uma pausa curta, sem bloquear a interface. Bitmaps compartilhados com a tela não são reciclados ao sair do cache. O fechamento do renderizador ocorre fora da thread de interface.
 
-## Verificação
+## Rolagem contínua (0.5)
+
+`ContinuousPageView` empilha as páginas na largura da tela, com margens e espaço entre elas. O layout (`ContinuousLayout`) é aritmética pura, testada em JVM: posição de cada página, faixa visível e página atual (a que ocupa o centro da tela, ou a primeira/última nas extremidades do documento). Os tamanhos de todas as páginas são medidos em segundo plano ao abrir; até lá, usa-se o tamanho da primeira, e a posição de leitura é preservada quando o layout se ajusta.
+
+A view pede ao modelo apenas as páginas visíveis, mais uma de cada lado em zoom normal, e a largura de bitmap correspondente ao zoom (largura da tela; o dobro a partir de 1,5x; teto de 2.200 px no maior lado). Bitmaps fora dessa faixa são liberados. A renderização ocorre em worker, a página atual primeiro, sem bloquear a rolagem. A posição de leitura é gravada 400 ms após a página mudar durante a rolagem.
+
+Zoom, inércia e desenho seguem o mesmo princípio da página única: `ValueAnimator`, `OverScroller` e `postInvalidateOnAnimation()`, sem laço de tempo fixo.
+
+
 
 O teste instrumentado de frames verifica canvas acelerado e coleta `FrameMetrics.TOTAL_DURATION` durante seis animações de zoom. Registra quantidade de frames, Hz reportados pela tela, p50/p95 e frames acima do orçamento calculado pela taxa reportada. Não define aprovação como atingir um FPS fixo em emulador.
 

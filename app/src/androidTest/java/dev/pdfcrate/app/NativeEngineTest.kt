@@ -17,6 +17,7 @@ import org.junit.Assume.assumeTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import java.io.File
+import dev.pdfcrate.app.pdf.*
 
 @RunWith(AndroidJUnit4::class)
 class NativeEngineTest {
@@ -80,11 +81,11 @@ class NativeEngineTest {
                 pdf.undoAnnotation(); assertEquals(initial, pdf.annotations(0).size)
                 pdf.redoAnnotation(); assertEquals(initial + 1, pdf.annotations(0).size)
                 pdf.addAnnotation(0, NativeAnnotations.note(RectF(300f, 200f, 500f, 240f), "Initial note"))
-                val note = pdf.annotations(0).single { it.kind == "Texto" }
+                val note = pdf.annotations(0).single { it.kind == AnnotationKind.FREE_TEXT }
                 pdf.editNote(0, note.id, "Updated note")
                 pdf.moveAnnotation(0, note.id, RectF(280f, 250f, 500f, 300f))
                 pdf.addAnnotation(0, NativeAnnotations.ink(listOf(listOf(PointF(60f, 300f), PointF(90f, 320f), PointF(140f, 290f))), RectF(55f, 285f, 145f, 325f)))
-                val stamp = pdf.annotations(0).single { it.kind == "Desenho ou assinatura" }
+                val stamp = pdf.annotations(0).single { it.kind == AnnotationKind.STAMP }
                 pdf.moveAnnotation(0, stamp.id, RectF(100f, 350f, 280f, 430f))
                 pdf.removeAnnotation(0, note.id); pdf.undoAnnotation()
                 assertTrue(pdf.annotations(0).any { it.text == "Updated note" })
