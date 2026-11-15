@@ -17,6 +17,7 @@ import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -104,9 +105,10 @@ fun ReaderScreen(model: ReaderModel, document: LibraryDocument, snackbar: Snackb
         val pageDescription = stringResource(R.string.reader_page_description, document.page + 1, model.count)
         Box(Modifier.fillMaxSize().padding(padding)) {
             // Each mode has its own call site, so switching recreates the AndroidView with the other view.
+            // Interop views are not clipped by Compose; zoomed or neighbouring pages must stay in the reading area.
             if (model.continuous) AndroidView(
                 factory = { scrollView.apply { startAt(document.page, model.scrollTarget?.id ?: Long.MIN_VALUE) } },
-                modifier = Modifier.fillMaxSize().testTag("page-view"), update = {
+                modifier = Modifier.fillMaxSize().clipToBounds().testTag("page-view"), update = {
                     it.setPages(model.pageSizes)
                     it.setImages(model.pageImages)
                     it.scrollTo(model.scrollTarget)
@@ -122,7 +124,7 @@ fun ReaderScreen(model: ReaderModel, document: LibraryDocument, snackbar: Snackb
                     it.onInk = if (model.annotationsAvailable) { page, strokes, box -> model.focusPage(page); model.addInk(strokes, box) } else null
                     it.contentDescription = pageDescription
                 })
-            else AndroidView(factory = { pageView }, modifier = Modifier.fillMaxSize().testTag("page-view"), update = {
+            else AndroidView(factory = { pageView }, modifier = Modifier.fillMaxSize().clipToBounds().testTag("page-view"), update = {
                 it.show(model.bitmap, document.page)
                 it.isEnabled = !model.busy
                 it.showOverlays(model.size.width, model.size.height, model.searchBounds, model.selection.bounds, model.tool)
