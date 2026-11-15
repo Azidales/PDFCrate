@@ -1,6 +1,6 @@
 # PDFCrate — Plano de construção da V1
 
-Status: escopo inicial acordado; implementação ainda não iniciada.
+Status: em implementação. O estado de cada versão está no [CHANGELOG](../CHANGELOG.md); este documento continua sendo a referência de escopo.
 
 ## Objetivo
 

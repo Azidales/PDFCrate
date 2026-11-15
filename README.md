@@ -1,17 +1,40 @@
 # PDFCrate
 
-Leitor de PDF nativo para Android, com foco em leitura, anotações e formulários. Sem anúncios, IA, rastreadores ou conta obrigatória. Processamento local e funcionamento offline.
+Leitor de PDF nativo para Android. Sem anúncios, IA, rastreadores ou conta obrigatória. Processamento local, sem permissão de internet e funcionamento offline.
 
-## Estado do projeto
+## Versão atual: 0.5.0-alpha
 
-Planejamento inicial. O aplicativo ainda não foi implementado e não há APK disponível.
+Android 8.0 (API 26) ou superior. A 0.5 profissionaliza interface, código e build, e acrescenta a rolagem contínua. Veja o [CHANGELOG](CHANGELOG.md).
 
-## V1
+- **Abrir:** PDFs lidos diretamente no provedor escolhido (seletor do Android, "Abrir com" ou compartilhamento), sem importar cópias.
+- **Biblioteca:** recentes com busca, retomada da última página, acesso temporário indicado e recuperação de gravação.
+- **Leitura:** rolagem contínua (padrão) ou página única, alternável no menu e lembrada entre sessões; zoom por pinça, toque duplo e botões, deslocamento com inércia, troca de página por gesto (página única) e salto direto de página.
+- **Busca:** barra de busca dedicada, contador e navegação entre resultados.
+- **Editar e anotar:** paleta com seleção de texto, nota, desenho, assinatura desenhada, formulários, lista de anotações, desfazer e refazer.
+- **Salvar:** salvar no original com recuperação, ou salvar cópia.
 
-O [plano de construção da V1](docs/PLANO_V1.md) descreve as funções, os critérios de aceite, as etapas e a estratégia de testes.
+Senha, texto, formulários e anotações dependem das APIs nativas do aparelho. O app detecta o que está disponível e mostra só as ferramentas suportadas; a tela Sobre informa o resultado. Veja a [matriz de compatibilidade](docs/NATIVOS_COMPATIBILIDADE.md) e as [funções, instalação e limitações](docs/PRIMEIRO_APK.md).
 
-Primeiro marco: validar o motor de PDF, sua licença e o suporte a texto, anotações, formulários e salvamento interoperável.
+## Distribuição
 
-## Tecnologia proposta
+A workflow [PDFCrate APK](https://github.com/Azidales/PDFCrate/actions/workflows/android-apk.yml) gera uma release minificada **sem assinatura**, acompanhada do `mapping.txt` do R8. O APK instalável é assinado à parte com a chave fixa, mantida fora do repositório. Veja [recentes e assinatura](docs/RECENTES_E_ASSINATURA.md) e o [procedimento de assinatura](signing/README.md).
 
-Kotlin e Jetpack Compose. Motor de PDF, versões Android e licença do projeto serão definidos após a prova técnica.
+## Desenvolvimento
+
+Kotlin e Jetpack Compose sobre o renderizador PDF do Android. JDK 17 e SDK Android 36 com extensão 19. O Gradle Wrapper (8.13, com checksum da distribuição) e o catálogo de versões (`gradle/libs.versions.toml`) estão no repositório.
+
+```sh
+./gradlew :app:testDebugUnitTest :app:assembleDebug :app:assembleRelease :app:lintDebug :app:lintRelease
+./gradlew :app:connectedDebugAndroidTest   # requer emulador ou aparelho
+```
+
+| Pacote | Responsabilidade |
+| --- | --- |
+| `pdf` | Acesso às APIs nativas de PDF, sessão do documento, gravação transacional |
+| `library` | Histórico de recentes e tela da biblioteca |
+| `reader` | Estado do leitor, visualização da página, barras, painéis e diálogos |
+| `ui` | Tema e componentes compartilhados |
+
+Os textos da interface ficam em `app/src/main/res/values/strings.xml`.
+
+O [plano da V1](docs/PLANO_V1.md) descreve o escopo completo e os critérios de aceite. O [laboratório do motor](engine-lab/README.md) avalia separadamente alternativas para futura edição; suas bibliotecas experimentais não entram no APK.
